@@ -106,7 +106,7 @@ texturing :: Exp Obj (VertexStream Triangle (V3F,V2F)) -> Exp Obj (FrameBuffer 1
 texturing objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
-    rasterCtx = TriangleCtx (CullFront CW) PolygonFill NoOffset LastVertex
+    rasterCtx = TriangleCtx (CullFront CW) (PolygonLine 1) NoOffset LastVertex
 
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
