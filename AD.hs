@@ -4,11 +4,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE OverloadedStrings #-}
 module AD where
 
 import qualified Data.Map as Map
 import Data.Function
 import Data.List
+import Data.String
 import Data.Monoid
 import Data.Traversable
 import Data.Reflection (Reifies)
@@ -31,6 +33,9 @@ data Exp
     | Exp Exp
     | Log Exp
         deriving (Eq)
+
+instance IsString Exp where
+    fromString = Var
 
 ty (C _) = 0
 ty (Var _) = 1

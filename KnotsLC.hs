@@ -1,10 +1,13 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 module KnotsLC where
 
 import Control.Applicative hiding (Const)
 import qualified Data.Map as M
+import qualified Data.ByteString.Char8 as BS
+import Data.Maybe
 
 import qualified Knot as K
 import Knot hiding (V3, V2)
@@ -39,7 +42,7 @@ transExp x t = case x of
     ACos e -> acos' $ tr e
     K.Exp e -> exp' $ tr e
     Log e -> log' $ tr e
-    K.Var s -> t M.! s
+    K.Var s -> fromMaybe (Uni (IFloat $ BS.pack s)) $ M.lookup s t
   where
     tr = flip transExp t
 
@@ -56,8 +59,8 @@ wires =
     , Wire2D 50 50 (fx', fy', fz')
     ]
   where
-    K.V3 fx fy fz = ((. M.singleton "t") . transExp) <$> (mulSV3 1 . unKnot) (K.Var "t")
-    K.V3 fx' fy' fz' = (\v t s -> transExp v $ M.fromList [("t",t),("s",s)]) <$> (tubularPatch (mulSV3 2 . unKnot) (mulSV3 0.6 . unKnot) $ K.V2 (K.Var "t") (K.Var "s"))
+    K.V3 fx fy fz = ((. M.singleton "t") . transExp) <$> (\t -> mulSV3 1 $ mulSV3 (sin (3* "time") + 0.1) $ unKnot t) "t"
+    K.V3 fx' fy' fz' = (\v t s -> transExp v $ M.fromList [("t",t),("s",s)]) <$> (tubularPatch (mulSV3 2 . unKnot) (mulSV3 0.6 . unKnot) $ K.V2 "t" "s")
 
 {-
 dia = fromVertices points

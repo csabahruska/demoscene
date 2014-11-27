@@ -126,6 +126,7 @@ main' wires = do
     let uniformMap      = uniformSetter renderer
         texture         = uniformFTexture2D "myTextureSampler" uniformMap
         mvp             = uniformM44F "MVP" uniformMap
+        time            = uniformFloat "time" uniformMap
         setWindowSize   = setScreenSize renderer
 
     setWindowSize 1024 768
@@ -145,6 +146,7 @@ main' wires = do
             let angle = pi / 2 * realToFrac t
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
             mvp $! mat4ToM44F $! mm .*. cm .*. pm
+            time $ realToFrac t
             render renderer
             swapBuffers
 
