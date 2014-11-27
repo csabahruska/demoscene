@@ -1,0 +1,3 @@
+artist: Ficture
+title: Take Them
+publisher: Lemongrassmusic (copyright owner)
