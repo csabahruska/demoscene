@@ -16,7 +16,7 @@ import Numeric.AD.Internal.Reverse (Reverse, Tape)
 import Numeric.AD
 
 data Exp
-    = C Double --Integer
+    = C Float
     | Var String
     | Add Exp Exp 
     | Sub Exp Exp 
