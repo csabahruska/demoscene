@@ -278,9 +278,9 @@ updateFPS state t1 = do
     t0' <- readIORef tR
     writeIORef tR $ t0' + t
     when (t + t0' >= 5000) $ do
-    f <- readIORef fR
-    let seconds = (t + t0') / 1000
-        fps = fromIntegral f / seconds
-    putStrLn (show (round fps) ++ " FPS - " ++ show f ++ " frames in ")
-    writeIORef tR 0
-    writeIORef fR 0
+      f <- readIORef fR
+      let seconds = (t + t0') / 1000
+          fps = fromIntegral f / seconds
+      putStrLn (show (round fps) ++ " FPS - " ++ show f ++ " frames in ")
+      writeIORef tR 0
+      writeIORef fR 0

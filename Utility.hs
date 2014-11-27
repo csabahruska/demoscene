@@ -5,6 +5,10 @@ import LambdaCube.GL
 import LambdaCube.GL.Mesh
 import Geometry
 
+import Data.Vect
+import Data.Vect.Float.Instances ()
+
+
 floatV :: Float -> Exp V Float
 floatV = Const
 
@@ -61,3 +65,42 @@ initUtility renderer = do
     let setMesh n m = compileMesh m >>= (\cm -> addMesh renderer n cm [])
     setMesh "ScreenQuad" quad
     return ()
+
+-- | Camera transformation matrix.
+lookat :: Vec3   -- ^ Camera position.
+       -> Vec3   -- ^ Target position.
+       -> Vec3   -- ^ Upward direction.
+       -> Proj4
+lookat pos target up = translateBefore4 (neg pos) (orthogonal $ toOrthoUnsafe r)
+  where
+    w = normalize $ pos &- target
+    u = normalize $ up &^ w
+    v = w &^ u
+    r = transpose $ Mat3 u v w
+
+-- | Perspective transformation matrix in row major order.
+perspective :: Float  -- ^ Near plane clipping distance (always positive).
+            -> Float  -- ^ Far plane clipping distance (always positive).
+            -> Float  -- ^ Field of view of the y axis, in radians.
+            -> Float  -- ^ Aspect ratio, i.e. screen's width\/height.
+            -> Mat4
+perspective n f fovy aspect = transpose $
+    Mat4 (Vec4 (2*n/(r-l))       0       (-(r+l)/(r-l))        0)
+         (Vec4     0        (2*n/(t-b))  ((t+b)/(t-b))         0)
+         (Vec4     0             0       (-(f+n)/(f-n))  (-2*f*n/(f-n)))
+         (Vec4     0             0            (-1)             0)
+  where
+    t = n*tan(fovy/2)
+    b = -t
+    r = aspect*t
+    l = -r
+
+-- | Pure orientation matrix defined by Euler angles.
+rotationEuler :: Vec3 -> Proj4
+rotationEuler (Vec3 a b c) = orthogonal $ toOrthoUnsafe $ rotMatrixY a .*. rotMatrixX b .*. rotMatrixZ c
+
+vec4ToV4F :: Vec4 -> V4F
+vec4ToV4F (Vec4 x y z w) = V4 x y z w
+
+mat4ToM44F :: Mat4 -> M44F
+mat4ToM44F (Mat4 a b c d) = V4 (vec4ToV4F a) (vec4ToV4F b) (vec4ToV4F c) (vec4ToV4F d)

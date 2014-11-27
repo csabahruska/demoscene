@@ -6,107 +6,18 @@ import Data.Vect
 import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
 
+import Geometry
+
 import LambdaCube.GL
 import LambdaCube.GL.Mesh
 
 import Codec.Image.STB hiding (Image)
 
---  Our vertices. Tree consecutive floats give a 3D vertex; Three consecutive vertices give a triangle.
---  A cube has 6 faces with 2 triangles each, so this makes 6*2=12 triangles, and 12*3 vertices
-g_vertex_buffer_data =
-    [ ( 1.0, 1.0,-1.0)
-    , ( 1.0,-1.0,-1.0)
-    , (-1.0,-1.0,-1.0)
-    , ( 1.0, 1.0,-1.0)
-    , (-1.0,-1.0,-1.0)
-    , (-1.0, 1.0,-1.0)
-    , ( 1.0, 1.0,-1.0)
-    , ( 1.0, 1.0, 1.0)
-    , ( 1.0,-1.0, 1.0)
-    , ( 1.0, 1.0,-1.0)
-    , ( 1.0,-1.0, 1.0)
-    , ( 1.0,-1.0,-1.0)
-    , ( 1.0, 1.0, 1.0)
-    , (-1.0,-1.0, 1.0)
-    , ( 1.0,-1.0, 1.0)
-    , ( 1.0, 1.0, 1.0)
-    , (-1.0, 1.0, 1.0)
-    , (-1.0,-1.0, 1.0)
-    , (-1.0, 1.0, 1.0)
-    , (-1.0,-1.0,-1.0)
-    , (-1.0,-1.0, 1.0)
-    , (-1.0, 1.0, 1.0)
-    , (-1.0, 1.0,-1.0)
-    , (-1.0,-1.0,-1.0)
-    , ( 1.0, 1.0,-1.0)
-    , (-1.0, 1.0,-1.0)
-    , (-1.0, 1.0, 1.0)
-    , ( 1.0, 1.0,-1.0)
-    , (-1.0, 1.0, 1.0)
-    , ( 1.0, 1.0, 1.0)
-    , ( 1.0, 1.0,-1.0)
-    , ( 1.0, 1.0, 1.0)
-    , (-1.0, 1.0, 1.0)
-    , ( 1.0, 1.0,-1.0)
-    , (-1.0, 1.0, 1.0)
-    , (-1.0, 1.0,-1.0)
-    ]
-
---  Two UV coordinatesfor each vertex. They were created with Blender.
-g_uv_buffer_data =
-    [ (0.0, 0.0)
-    , (0.0, 1.0)
-    , (1.0, 1.0)
-    , (0.0, 0.0)
-    , (1.0, 1.0)
-    , (1.0, 0.0)
-    , (0.0, 0.0)
-    , (1.0, 0.0)
-    , (1.0, 1.0)
-    , (0.0, 0.0)
-    , (1.0, 1.0)
-    , (0.0, 1.0)
-    , (1.0, 0.0)
-    , (0.0, 1.0)
-    , (1.0, 1.0)
-    , (1.0, 0.0)
-    , (0.0, 0.0)
-    , (0.0, 1.0)
-    , (0.0, 0.0)
-    , (1.0, 1.0)
-    , (0.0, 1.0)
-    , (0.0, 0.0)
-    , (1.0, 0.0)
-    , (1.0, 1.0)
-    , (0.0, 0.0)
-    , (1.0, 0.0)
-    , (1.0, 1.0)
-    , (0.0, 0.0)
-    , (1.0, 1.0)
-    , (0.0, 1.0)
-    , (0.0, 0.0)
-    , (0.0, 1.0)
-    , (1.0, 1.0)
-    , (0.0, 0.0)
-    , (1.0, 1.0)
-    , (1.0, 0.0)
-    ]
-
-cube :: Mesh
-cube = Mesh
-    { mAttributes   = T.fromList
-        [ ("vertexPosition_modelspace", A_V3F $ SV.fromList [V3 x y z | (x,y,z) <- g_vertex_buffer_data])
-        , ("vertexUV",                  A_V2F $ SV.fromList [V2 u v | (u,v) <- g_uv_buffer_data])
-        ]
-    , mPrimitive    = P_Triangles
-    , mGPUData      = Nothing
-    }
-
-texturing :: Exp Obj (VertexStream Triangle (V3F,V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing :: Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
-    rasterCtx = TriangleCtx (CullFront CW) (PolygonLine 1) NoOffset LastVertex
+    rasterCtx = TriangleCtx CullNone{-(CullFront CW)-} (PolygonLine 1) NoOffset LastVertex
 
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
@@ -123,17 +34,19 @@ texturing objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream em
     modelViewProj :: Exp V M44F
     modelViewProj = Uni (IM44F "MVP")
 
-    vertexShader :: Exp V (V3F,V2F) -> VertexOut () V2F
-    vertexShader puv = VertexOut v4 (Const 1) ZT (Smooth uv:.ZT)
+    vertexShader :: Exp V (V2F) -> VertexOut () V2F
+    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv:.ZT)
       where
         v4 :: Exp V V4F
-        v4 = modelViewProj @*. v3v4 p
-        (p,uv) = untup2 puv
+        v4 = modelViewProj @*. v2v4 uv
 
     fragmentShader :: Exp F V2F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
     fragmentShader uv = FragmentOutRastDepth $ color tex uv :. ZT
       where
         tex = TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
+
+v2v4 :: Exp s V2F -> Exp s V4F
+v2v4 v = let V2 x y = unpack' v in pack' $ V4 x y (Const 0) (Const 1)
 
 v3v4 :: Exp s V3F -> Exp s V4F
 v3v4 v = let V3 x y z = unpack' v in pack' $ V4 x y z (Const 1)
@@ -153,7 +66,7 @@ main = do
     setWindowTitle "LambdaCube 3D Textured Cube"
 
     let frameImage :: Exp Obj (Image 1 V4F)
-        frameImage = PrjFrameBuffer "" tix0 $ texturing $ Fetch "stream" Triangles (IV3F "vertexPosition_modelspace", IV2F "vertexUV")
+        frameImage = PrjFrameBuffer "" tix0 $ texturing $ Fetch "stream" Triangles (IV2F "position")
 
     renderer <- compileRenderer $ ScreenOut frameImage
 
@@ -166,7 +79,7 @@ main = do
     Right img <- loadImage "textures/rusty_metal.jpg"
     texture =<< compileTexture2DRGBAF True False img
 
-    gpuCube <- compileMesh cube
+    gpuCube <- compileMesh $ grid 5 5
     addMesh renderer "stream" gpuCube []
 
     let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
