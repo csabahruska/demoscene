@@ -9,6 +9,7 @@ import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
 
 import Geometry
+import Utility
 
 import LambdaCube.GL
 import LambdaCube.GL.Mesh
@@ -25,9 +26,6 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
 
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
-
-    --emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
-    --emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
     fragmentStream :: Exp Obj (FragmentStream 1 V2F)
     fragmentStream = Rasterize rasterCtx primitiveStream
@@ -57,13 +55,10 @@ texturing2D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStr
 texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
-    rasterCtx = TriangleCtx CullNone{-(CullFront CW)-} (PolygonLine 1) NoOffset LastVertex
+    rasterCtx = TriangleCtx {-CullNone-}(CullFront CW) (PolygonFill) NoOffset LastVertex
 
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
-
-    --emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
-    --emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
     fragmentStream :: Exp Obj (FragmentStream 1 V2F)
     fragmentStream = Rasterize rasterCtx primitiveStream
@@ -98,6 +93,15 @@ v3v4 v = let V3 x y z = unpack' v in pack' $ V4 x y z (Const 1)
 color t uv = texture' (smp t) uv
 smp t = Sampler LinearFilter ClampToEdge t
 
+copyImg img = renderScreen frag
+  where
+    frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
+    frag uv = FragmentOut $ color :. ZT
+      where
+        color = smp img uv
+        sizeI = 1024 :: Word32
+        smp i coord = texture' (Sampler LinearFilter ClampToEdge $ Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [i]) coord
+
 main :: IO ()
 main = main' wires
 
@@ -121,7 +125,8 @@ main' wires = do
         addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
         addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
 
-    renderer <- compileRenderer $ ScreenOut frameImage
+    renderer <- compileRenderer $ ScreenOut $ copyImg frameImage
+    initUtility renderer
 
     let uniformMap      = uniformSetter renderer
         texture         = uniformFTexture2D "myTextureSampler" uniformMap
@@ -143,7 +148,7 @@ main' wires = do
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
         loop = do
             t <- getTime
-            let angle = pi / 2 * realToFrac t
+            let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
             mvp $! mat4ToM44F $! mm .*. cm .*. pm
             time $ realToFrac t
@@ -156,45 +161,3 @@ main' wires = do
 
     dispose renderer
     closeWindow
-
-vec4ToV4F :: Vec4 -> V4F
-vec4ToV4F (Vec4 x y z w) = V4 x y z w
-
-mat4ToM44F :: Mat4 -> M44F
-mat4ToM44F (Mat4 a b c d) = V4 (vec4ToV4F a) (vec4ToV4F b) (vec4ToV4F c) (vec4ToV4F d)
-
--- | Perspective transformation matrix in row major order.
-perspective :: Float  -- ^ Near plane clipping distance (always positive).
-            -> Float  -- ^ Far plane clipping distance (always positive).
-            -> Float  -- ^ Field of view of the y axis, in radians.
-            -> Float  -- ^ Aspect ratio, i.e. screen's width\/height.
-            -> Mat4
-perspective n f fovy aspect = transpose $
-    Mat4 (Vec4 (2*n/(r-l))       0       (-(r+l)/(r-l))        0)
-         (Vec4     0        (2*n/(t-b))  ((t+b)/(t-b))         0)
-         (Vec4     0             0       (-(f+n)/(f-n))  (-2*f*n/(f-n)))
-         (Vec4     0             0            (-1)             0)
-  where
-    t = n*tan(fovy/2)
-    b = -t
-    r = aspect*t
-    l = -r
-
--- type Wires = [[(Int, Exp V Float)] -> Exp V Float]
-
-
--- | Pure orientation matrix defined by Euler angles.
-rotationEuler :: Vec3 -> Proj4
-rotationEuler (Vec3 a b c) = orthogonal $ toOrthoUnsafe $ rotMatrixY a .*. rotMatrixX b .*. rotMatrixZ c
-
--- | Camera transformation matrix.
-lookat :: Vec3   -- ^ Camera position.
-       -> Vec3   -- ^ Target position.
-       -> Vec3   -- ^ Upward direction.
-       -> Proj4
-lookat pos target up = translateBefore4 (neg pos) (orthogonal $ toOrthoUnsafe r)
-  where
-    w = normalize $ pos &- target
-    u = normalize $ up &^ w
-    v = w &^ u
-    r = transpose $ Mat3 u v w
