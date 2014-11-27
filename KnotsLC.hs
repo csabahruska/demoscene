@@ -81,7 +81,7 @@ wires =
     wire2DNorm i j ff = Wire2D i j $ \t s -> let env = M.fromList [("t",t),("s",s)] in ((fx env, fy env, fz env), Just (nx env, ny env, nz env))
       where
         K.V3 fx fy fz = transExp <$> ff (K.V2 "t" "s")
-        K.V3 nx ny nz = transExp <$> (unitV3 . normalPatch ff) (K.V2 "t" "s")
+        K.V3 nx ny nz = transExp <$> (normalPatch ff) (K.V2 "t" "s")
 
 testComplexity = normalPatch $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
 testComplexity' = normalPatch $ tubularPatch (mulSV3 0.1 . unKnot) (mulSV3 0.1 . unKnot)
