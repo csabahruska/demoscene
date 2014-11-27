@@ -148,7 +148,7 @@ imgToTex img = Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [img]
   sizeI = 1024 :: Word32
 
 main :: IO ()
-main = main' wires
+main = main' =<< wires
 
 main' :: [Wire] -> IO ()
 main' wires = do
