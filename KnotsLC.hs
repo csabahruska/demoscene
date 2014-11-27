@@ -19,10 +19,12 @@ import LambdaCube.GL
 --f :: (a -> (b, c, d)) -> (a -> b, a -> c, a -> d)
 --f g = (fst3 . g, snd3 . g, thd3 . g)
 
+type ExpV3 = (Exp V Float, Exp V Float, Exp V Float)
+
 data Wire
-    = Wire1D Int (Exp V Float -> Exp V Float, Exp V Float -> Exp V Float, Exp V Float -> Exp V Float)
-            -- sprite
-    | Wire2D Int Int (Exp V Float -> Exp V Float -> Exp V Float, Exp V Float -> Exp V Float -> Exp V Float, Exp V Float -> Exp V Float -> Exp V Float)
+    = Wire1D Int (Exp V Float -> ExpV3)
+    | Wire2D Int Int (Exp V Float -> Exp V Float -> (ExpV3, Maybe ExpV3))
+    -- sprite
     -- color
     -- normal
 
@@ -62,14 +64,17 @@ instance Timed K.Exp where
 
 
 wires =
-    [ Wire1D 200 (fx, fy, fz)
-    , Wire2D 50 50 (fx', fy', fz')
+    [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
+    , wire2D 50 50 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
+    , wire2D 200 80 $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
     ]
   where
-    K.V3 fx fy fz = ((. M.singleton "t") . transExp) <$> (\t -> mulSV3 1 $ mulSV3 (sin (3* time) + 1.1) $ unKnot t) "t"
-    K.V3 fx' fy' fz' = ((\v t s -> v $ M.fromList [("t",t),("s",s)]) . transExp) <$> 
-            ( tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.3 * (sin (4 * time) + 1.1)) . unKnot)
-            $ K.V2 "t" "s")
+    wire1D i ff = Wire1D i $ \t -> let env = M.singleton "t" t in (fx env, fy env, fz env)
+      where
+        K.V3 fx fy fz = transExp <$> ff "t"
+    wire2D i j ff = Wire2D i j $ \t s -> let env = M.fromList [("t",t),("s",s)] in ((fx env, fy env, fz env), Nothing)
+      where
+        K.V3 fx fy fz = transExp <$> ff (K.V2 "t" "s")
 
 {-
 dia = fromVertices points

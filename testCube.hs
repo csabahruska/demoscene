@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings, PackageImports, TypeOperators, DataKinds, FlexibleContexts #-}
+{-# LANGUAGE ViewPatterns #-}
 
 import "GLFW-b" Graphics.UI.GLFW as GLFW
 import Control.Monad
@@ -42,8 +43,9 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
       where
         v4 :: Exp V V4F
         v4 = case wire of
-            Wire1D _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x) (fy x) (fz x) (Const 1))
-            Wire2D _ _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x y) (fy x y) (fz x y) (Const 1))
+            Wire1D _ f -> modelViewProj @*. (pack' $ V4 fx fy fz (Const 1))
+              where
+                (fx, fy, fz) = f x
 
         V2 x y = unpack' uv
 
@@ -61,27 +63,31 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
 
-    fragmentStream :: Exp Obj (FragmentStream 1 V2F)
+--    fragmentStream :: Exp Obj (FragmentStream 1 V2F)
     fragmentStream = Rasterize rasterCtx primitiveStream
 
-    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V2F)
+--    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V2F)
     primitiveStream = Transform vertexShader objs
 
     modelViewProj :: Exp V M44F
     modelViewProj = Uni (IM44F "MVP")
 
-    vertexShader :: Exp V (V2F) -> VertexOut () V2F
-    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv:.ZT)
+    vertexShader :: Exp V (V2F) -> VertexOut () (V2F, V3F)
+    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :.ZT)
       where
-        v4 :: Exp V V4F
-        v4 = case wire of
-            Wire1D _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x) (fy x) (fz x) (Const 1))
-            Wire2D _ _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x y) (fy x y) (fz x y) (Const 1))
+--        v4 :: Exp V V4F
+        (v4, ns) = case wire of
+            Wire2D _ _ f -> (modelViewProj @*. (pack' $ V4 fx fy fz (Const 1)), ns_)
+              where
+                ((fx, fy, fz), normals) = f x y
+                ns_ = case normals of
+                    Nothing -> Const zero' --undefined
+                    Just (nx, ny, nz) -> pack' $ V3 nx ny nz
 
         V2 x y = unpack' uv
 
-    fragmentShader :: Exp F V2F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-    fragmentShader uv = FragmentOutRastDepth $ color tex uv :. ZT
+--    fragmentShader :: Exp F V2F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
+    fragmentShader (untup2 -> (uv, ns)) = FragmentOutRastDepth $ color tex uv :. ZT
       where
         tex = TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
 
