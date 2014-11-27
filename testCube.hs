@@ -70,16 +70,26 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
 --    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V2F)
     primitiveStream = Transform vertexShader objs
 
-    modelViewProj :: Exp V M44F
+    modelViewProj :: Exp f M44F
     modelViewProj = Uni (IM44F "MVP")
 
-    vertexShader :: Exp V (V2F) -> VertexOut () (V2F, V3F)
-    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :.ZT)
+    modelView :: Exp f M44F
+    modelView = Uni (IM44F "MV")
+
+    proj :: Exp f M44F
+    proj = Uni (IM44F "P")
+
+    prj1 a = drop4 $ modelView @*. snoc a 1
+    prj0 a = drop4 $ modelView @*. snoc a 0
+
+    vertexShader :: Exp V (V2F) -> VertexOut () (V2F, V3F, V4F)
+    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :.Smooth pos :. ZT)
       where
 --        v4 :: Exp V V4F
-        (v4, ns) = case wire of
-            Wire2D _ _ f -> (modelViewProj @*. (pack' $ V4 fx fy fz (Const 1)), ns_)
+        (v4, ns, pos) = case wire of
+            Wire2D _ _ f -> (modelViewProj @*. ps, ns_, modelView @*. ps)
               where
+                ps = pack' $ V4 fx fy fz (Const 1)
                 ((fx, fy, fz), normals) = f x y
                 ns_ = case normals of
                     Nothing -> Const zero' --undefined
@@ -87,16 +97,32 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
 
         V2 x y = unpack' uv
 
---    fragmentShader :: Exp F V2F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-    fragmentShader (untup2 -> (uv, ns)) = FragmentOutRastDepth $ color tex uv :. ZT
+    --fragmentShader :: Exp F (V2F,V3F) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
+    fragmentShader (untup3 -> (uv, ns, pos')) = FragmentOutRastDepth $ c :. ZT
       where
         tex = TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
+        clr = color tex uv
+        
+        pos = v4v3 pos'
+        pointlight = v3FF $ V3 1 1 1
+        pointlight1 = v3FF $ V3 (-5) (-1) 1
+        dlight = normalize' $ prj1 pointlight @- pos
+        dlight1 = normalize' $ prj1 pointlight1 @- pos
+        color0 = v4FF $ V4 0 0 1 1
+        color1 = v4FF $ V4 1 0 0 1
+        n = normalize' ns
+        c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
+        
+
 
 v2v4 :: Exp s V2F -> Exp s V4F
 v2v4 v = let V2 x y = unpack' v in pack' $ V4 x y (Const 0) (Const 1)
 
 v3v4 :: Exp s V3F -> Exp s V4F
 v3v4 v = let V3 x y z = unpack' v in pack' $ V4 x y z (Const 1)
+
+v4v3 :: Exp s V4F -> Exp s V3F
+v4v3 v = let V4 x y z _ = unpack' v in pack' $ V3 x y z
 
 color t uv = texture' (smp t) uv
 smp t = Sampler LinearFilter ClampToEdge t
@@ -158,6 +184,8 @@ main' wires = do
     let uniformMap      = uniformSetter renderer
         texture         = uniformFTexture2D "myTextureSampler" uniformMap
         mvp             = uniformM44F "MVP" uniformMap
+        mv              = uniformM44F "MV" uniformMap
+        proj            = uniformM44F "P" uniformMap
         time            = uniformFloat "time" uniformMap
         setWindowSize   = setScreenSize renderer
 
@@ -178,6 +206,8 @@ main' wires = do
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
             mvp $! mat4ToM44F $! mm .*. cm .*. pm
+            mv $! mat4ToM44F $! mm .*. cm
+            proj $! mat4ToM44F $! pm
             time $ realToFrac t
             render renderer
             swapBuffers
