@@ -53,14 +53,23 @@ dia' = fromVertices points
   where
     points = map (toP . project') $ sampleCurve 20 $
 -}
+{-
+time :: K.Exp
+time = "time"
+-}
+instance Timed K.Exp where
+    time = "time"
+
 
 wires =
     [ Wire1D 200 (fx, fy, fz)
     , Wire2D 50 50 (fx', fy', fz')
     ]
   where
-    K.V3 fx fy fz = ((. M.singleton "t") . transExp) <$> (\t -> mulSV3 1 $ mulSV3 (sin (3* "time") + 0.1) $ unKnot t) "t"
-    K.V3 fx' fy' fz' = (\v t s -> transExp v $ M.fromList [("t",t),("s",s)]) <$> (tubularPatch (mulSV3 2 . unKnot) (mulSV3 0.6 . unKnot) $ K.V2 "t" "s")
+    K.V3 fx fy fz = ((. M.singleton "t") . transExp) <$> (\t -> mulSV3 1 $ mulSV3 (sin (3* time) + 1.1) $ unKnot t) "t"
+    K.V3 fx' fy' fz' = ((\v t s -> v $ M.fromList [("t",t),("s",s)]) . transExp) <$> 
+            ( tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.3 * (sin (4 * time) + 1.1)) . unKnot)
+            $ K.V2 "t" "s")
 
 {-
 dia = fromVertices points

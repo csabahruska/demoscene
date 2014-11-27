@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Knot where
 
@@ -12,7 +13,11 @@ import Control.Applicative
 import Control.Monad
 
 --import qualified LambdaCube.GL as LC
+import Data.Reflection
 import Numeric.AD
+import Numeric.AD.Internal.Reverse as Reverse (Reverse(Lift), Tape)
+import Numeric.AD.Internal.Forward as Forward (Forward(Lift))
+import Numeric.AD.Internal.Type (AD(AD))
 
 --------------------- Linear algebra for 2 and 3 dimensional vectors and matrices
 
@@ -68,11 +73,23 @@ crossV3 (V3 x0 y0 z0) (V3 x1 y1 z1) = V3 x y z
 transpose32 :: V3 (V2 s) -> V2 (V3 s)
 transpose32 (V3 (V2 x0 y0) (V2 x1 y1) (V2 x2 y2)) = V2 (V3 x0 x1 x2) (V3 y0 y1 y2)
 
+------------------------------- timed computations
+
+class Floating a => Timed a where
+    time :: a
+
+instance Timed a => Timed (AD s a) where
+    time = AD time
+instance Timed a => Timed (Forward a) where
+    time = Forward.Lift time
+instance (Timed a, Reifies s Tape) => Timed (Reverse s a) where
+    time = Reverse.Lift time
+
 ------------------------------- Curves and patches
 
-type Curve = forall s . Floating s => s -> V3 s         -- [0,1] -> R3
-type Patch = forall s . Floating s => V2 s -> V3 s      -- [0,1] x [0,1] -> R3
-type Frame = forall s . Floating s => s -> V3 (V3 s)    -- moving frame
+type Curve = forall s . Timed s => s -> V3 s         -- [0,1] -> R3
+type Patch = forall s . Timed s => V2 s -> V3 s      -- [0,1] x [0,1] -> R3
+type Frame = forall s . Timed s => s -> V3 (V3 s)    -- moving frame
 
 -------- sampling
 
