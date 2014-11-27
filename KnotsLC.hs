@@ -83,6 +83,9 @@ wires =
         K.V3 fx fy fz = transExp <$> ff (K.V2 "t" "s")
         K.V3 nx ny nz = transExp <$> (unitV3 . normalPatch ff) (K.V2 "t" "s")
 
+testComplexity = normalPatch $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
+testComplexity' = normalPatch $ tubularPatch (mulSV3 0.1 . unKnot) (mulSV3 0.1 . unKnot)
+
 {-
 dia = fromVertices points
   <> mconcat (map (mark red) tpoints)

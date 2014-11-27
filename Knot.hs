@@ -135,7 +135,7 @@ tubularPatch path = \mask (V2 t u) -> path t + mulMV3 (frame t) (mask u)
 normalPatch :: Patch -> Patch
 normalPatch patch v = crossV3 du dt
   where
-    V2 du dt = transpose32 $ jacobian patch v
+    V2 du dt = transpose32 . jacobian patch $ v
 
 
 ------ predefined curves and patches

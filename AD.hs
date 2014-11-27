@@ -5,6 +5,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 module AD where
 
 import qualified Data.Map as Map
@@ -34,6 +35,8 @@ data Exp
     | Log Exp
         deriving (Eq)
 
+pattern Neg x <- Sub 0 x
+
 instance IsString Exp where
     fromString = Var
 
@@ -47,23 +50,35 @@ instance Ord Exp where
 
 --    | E Exp Integer
 
-add 0 x = x
-add (C a) (C b) = C $ a + b
---add x y | x == y = norm $ 2 * x
-add x y = Add x y
+flipC f g x y@(C _) = g y x
+flipC f g x y = f x y
 
-mul 0 x = 0
-mul 1 x = x
-mul (C a) (C b) = C $ a * b
---mul (E x n) (E y m) | x == y = E x (n + m)
-{-
-mul (Mul (C i) (E x n)) (E y m) | x == y = Mul (C i) (E x (n + m))
-mul (Mul (C i) (E x n)) y | x == y = Mul (C i) (E x (n + 1))
-mul (Mul (C i) x) y | x == y = Mul (C i) (E x 2)
-mul (E x n) y | x == y = E x (n + 1)
-mul x y | x == y = E x 2
--}
-mul x y = Mul x y
+add = flipC f f where
+    f 0 x = x
+    f (C a) (C b) = C $ a + b
+    --add x y | x == y = norm $ 2 * x
+    f (Neg x) (Neg y) = neg $ add x y
+    f x (Neg y) = sub x y
+    f (Neg x) y = sub y x
+    f x y = Add x y
+
+neg x = sub 0 x
+
+--sub 0 x = x
+sub (C a) (C b) = C $ a - b
+sub 0 (Neg a) = a
+sub x y = Sub x y
+
+mul = flipC f f where
+    f 0 x = 0
+    f 1 x = x
+    f (C a) (C b) = C $ a * b
+    f (C a) (Mul (C b) c) = Mul (C $ a * b) c
+    f (Mul (C a) a') (Mul (C b) c) = Mul (C $ a * b) $ mul a' c
+    f (Neg x) (Neg y) = mul x y
+    f (Neg x) y = neg (mul x y)
+    f x (Neg y) = neg (mul x y)
+    f x y = Mul x y
 
 adds (Add a b) = adds a ++ adds b
 adds x = [x]
@@ -136,9 +151,9 @@ instance Show Exp where
         C i -> shows i
 
 instance Num Exp where
-    (*) = Mul
-    (+) = Add
-    (-) = Sub
+    (*) = mul --flipC mul mul
+    (+) = add --flipC add add
+    (-) = sub
     abs = Abs
     signum = Signum
     fromInteger = C . fromInteger
