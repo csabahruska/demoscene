@@ -9,6 +9,8 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
 
+import Sound.ProteaAudio
+
 import Geometry
 import Utility
 import Blur
@@ -59,7 +61,7 @@ texturing2D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStr
 texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
-    rasterCtx = TriangleCtx {-CullNone-}(CullFront CW) (PolygonFill) NoOffset LastVertex
+    rasterCtx = TriangleCtx {-CullNone-}(CullFront CW) (PolygonFill {-PolygonLine 1-}) NoOffset LastVertex
 
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
@@ -214,7 +216,13 @@ main' wires = do
 
             k <- keyIsPressed KeyEsc
             unless k $ loop
+
+    initAudio 64 44100 1024
+    smp <- sampleFromFile "07_Take_Them.wav" 1
+    soundPlay smp 1 1 0 1
+
     loop
+    finishAudio
 
     dispose renderer
     closeWindow
