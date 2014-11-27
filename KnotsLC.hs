@@ -1,6 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 module KnotsLC where
 
@@ -66,7 +67,7 @@ instance Timed K.Exp where
 wires =
     [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
     , wire2D 50 50 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
-    , wire2D 200 80 $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
+    , wire2DNorm 200 80 $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
     ]
   where
     wire1D i ff = Wire1D i $ \t -> let env = M.singleton "t" t in (fx env, fy env, fz env)
@@ -75,6 +76,12 @@ wires =
     wire2D i j ff = Wire2D i j $ \t s -> let env = M.fromList [("t",t),("s",s)] in ((fx env, fy env, fz env), Nothing)
       where
         K.V3 fx fy fz = transExp <$> ff (K.V2 "t" "s")
+
+    wire2DNorm :: Int -> Int -> Patch -> Wire
+    wire2DNorm i j ff = Wire2D i j $ \t s -> let env = M.fromList [("t",t),("s",s)] in ((fx env, fy env, fz env), Just (nx env, ny env, nz env))
+      where
+        K.V3 fx fy fz = transExp <$> ff (K.V2 "t" "s")
+        K.V3 nx ny nz = transExp <$> (unitV3 . normalPatch ff) (K.V2 "t" "s")
 
 {-
 dia = fromVertices points
