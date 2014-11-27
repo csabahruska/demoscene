@@ -10,6 +10,7 @@ import qualified Data.Vector.Storable as SV
 
 import Geometry
 import Utility
+import Blur
 
 import LambdaCube.GL
 import LambdaCube.GL.Mesh
@@ -113,6 +114,7 @@ main' wires = do
         , displayOptions_height             = 768
         , displayOptions_openGLVersion      = (3,2)
         , displayOptions_openGLProfile      = CoreProfile
+        , displayOptions_numDepthBits       = 24
         }
     setWindowTitle "LambdaCube 3D Textured Cube"
 
@@ -125,7 +127,7 @@ main' wires = do
         addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
         addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
 
-    renderer <- compileRenderer $ ScreenOut $ copyImg frameImage
+    renderer <- compileRenderer $ ScreenOut frameImage
     initUtility renderer
 
     let uniformMap      = uniformSetter renderer
