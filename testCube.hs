@@ -12,6 +12,7 @@ import qualified Data.Vector.Storable as SV
 import Geometry
 import Utility
 import Blur
+import Scanlines
 
 import LambdaCube.GL
 import LambdaCube.GL.Mesh
@@ -109,6 +110,17 @@ copyImg img = renderScreen frag
         sizeI = 1024 :: Word32
         smp i coord = texture' (Sampler LinearFilter ClampToEdge $ Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [i]) coord
 
+texToImg n = renderScreen frag
+  where
+    frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
+    frag uv = FragmentOut $ color tex uv :. ZT
+      where
+        tex = TextureSlot n $ Texture2D (Float RGBA) n1
+
+imgToTex img = Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [img]
+ where
+  sizeI = 1024 :: Word32
+
 main :: IO ()
 main = main' wires
 
@@ -127,7 +139,14 @@ main' wires = do
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
-        frameImage = PrjFrameBuffer "" tix0 $ foldl addWire emptyFB $ zip (map (("stream" <>) . BS.pack . show) [0..]) wires
+        frameImage' = PrjFrameBuffer "" tix0 $ foldl addWire emptyFB $ zip (map (("stream" <>) . BS.pack . show) [0..]) wires
+
+        frameImage :: Exp Obj (Image 1 V4F)
+        frameImage = renderScreen $ (FragmentOut.(:.ZT).fxScanlines sl frameImage')
+        sl    = scanlines { scanlinesFrequency = floatF 128
+                          , scanlinesHigh = Const $ V4 0.9 1 1 1
+                          , scanlinesLow = Const $ V4 0.45 0.5 0.5 1
+                          }
 
 --        addWire :: -> (String, 
         addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
