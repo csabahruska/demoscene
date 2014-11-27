@@ -1,0 +1,4 @@
+# exclude everything except directory foo/bar
+*.hi
+*.o
+dist/
