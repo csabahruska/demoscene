@@ -2,7 +2,9 @@
 
 import "GLFW-b" Graphics.UI.GLFW as GLFW
 import Control.Monad
+import Data.Monoid
 import Data.Vect
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
 
@@ -13,8 +15,10 @@ import LambdaCube.GL.Mesh
 
 import Codec.Image.STB hiding (Image)
 
-texturing :: Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
-texturing objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
+import KnotsLC
+
+texturing1D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
     rasterCtx = TriangleCtx CullNone{-(CullFront CW)-} (PolygonLine 1) NoOffset LastVertex
@@ -22,8 +26,8 @@ texturing objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream em
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
 
-    emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
-    emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
+    --emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
+    --emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
     fragmentStream :: Exp Obj (FragmentStream 1 V2F)
     fragmentStream = Rasterize rasterCtx primitiveStream
@@ -38,7 +42,47 @@ texturing objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream em
     vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv:.ZT)
       where
         v4 :: Exp V V4F
-        v4 = modelViewProj @*. v2v4 uv
+        v4 = case wire of
+            Wire1D _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x) (fy x) (fz x) (Const 1))
+            Wire2D _ _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x y) (fy x y) (fz x y) (Const 1))
+
+        V2 x y = unpack' uv
+
+    fragmentShader :: Exp F V2F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
+    fragmentShader uv = FragmentOutRastDepth $ color tex uv :. ZT
+      where
+        tex = TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
+
+texturing2D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
+  where
+    rasterCtx :: RasterContext Triangle
+    rasterCtx = TriangleCtx CullNone{-(CullFront CW)-} (PolygonLine 1) NoOffset LastVertex
+
+    fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
+    fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
+
+    --emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
+    --emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
+
+    fragmentStream :: Exp Obj (FragmentStream 1 V2F)
+    fragmentStream = Rasterize rasterCtx primitiveStream
+
+    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V2F)
+    primitiveStream = Transform vertexShader objs
+
+    modelViewProj :: Exp V M44F
+    modelViewProj = Uni (IM44F "MVP")
+
+    vertexShader :: Exp V (V2F) -> VertexOut () V2F
+    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv:.ZT)
+      where
+        v4 :: Exp V V4F
+        v4 = case wire of
+            Wire1D _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x) (fy x) (fz x) (Const 1))
+            Wire2D _ _ (fx, fy, fz) -> modelViewProj @*. (pack' $ V4 (fx x y) (fy x y) (fz x y) (Const 1))
+
+        V2 x y = unpack' uv
 
     fragmentShader :: Exp F V2F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
     fragmentShader uv = FragmentOutRastDepth $ color tex uv :. ZT
@@ -55,7 +99,10 @@ color t uv = texture' (smp t) uv
 smp t = Sampler LinearFilter ClampToEdge t
 
 main :: IO ()
-main = do
+main = main' wires
+
+main' :: [Wire] -> IO ()
+main' wires = do
     initialize
     openWindow defaultDisplayOptions
         { displayOptions_width              = 1024
@@ -65,8 +112,14 @@ main = do
         }
     setWindowTitle "LambdaCube 3D Textured Cube"
 
-    let frameImage :: Exp Obj (Image 1 V4F)
-        frameImage = PrjFrameBuffer "" tix0 $ texturing $ Fetch "stream" Triangles (IV2F "position")
+    let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
+        emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
+
+        frameImage = PrjFrameBuffer "" tix0 $ foldl addWire emptyFB $ zip (map (("stream" <>) . BS.pack . show) [0..]) wires
+
+--        addWire :: -> (String, 
+        addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
+        addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
 
     renderer <- compileRenderer $ ScreenOut frameImage
 
@@ -79,8 +132,11 @@ main = do
     Right img <- loadImage "textures/rusty_metal.jpg"
     texture =<< compileTexture2DRGBAF True False img
 
-    gpuCube <- compileMesh $ grid 5 5
-    addMesh renderer "stream" gpuCube []
+    forM_ (zip [0..] wires) $ \(n, w) -> do
+        gpuCube <- compileMesh $ case w of
+            Wire1D i _ -> line i
+            Wire2D i j _ -> grid i j
+        addMesh renderer ("stream" <> BS.pack (show n)) gpuCube []
 
     let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
@@ -121,6 +177,9 @@ perspective n f fovy aspect = transpose $
     b = -t
     r = aspect*t
     l = -r
+
+-- type Wires = [[(Int, Exp V Float)] -> Exp V Float]
+
 
 -- | Pure orientation matrix defined by Euler angles.
 rotationEuler :: Vec3 -> Proj4
