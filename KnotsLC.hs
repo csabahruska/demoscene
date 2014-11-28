@@ -51,8 +51,8 @@ wires = execWriterT $ do
     wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
 --    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
 --    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
-    wire2DNormAlpha True 2000 10 (env3 . magnifyZ 60 . rotateXY time . translateY (-0.5) . planeZY)
-                                (Just $ const $ K.V3 1 1 0) Nothing
+    wire2DNormAlpha True 2000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
+                                (Just $ \(K.V2 x y) -> K.V3 x 1 y) (Just $ \(K.V2 x y) -> y)
 
 --    wire2DNorm True 2 2 $ planeXY
 
