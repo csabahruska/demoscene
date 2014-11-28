@@ -15,13 +15,52 @@ import Geometry
 import Utility
 import Blur
 import Scanlines
+import Vignette
 
 import LambdaCube.GL
 import LambdaCube.GL.Mesh
 
+import LambdaCube.Font.Atlas
+import LambdaCube.Font.Common hiding (floatF,floatV,v3v4)
+import qualified LambdaCube.Font.SimpleDistanceField as SDF
+import qualified LambdaCube.Font.CompositeDistanceField as CDF
+
+import Graphics.Text.TrueType
+
 import Codec.Image.STB hiding (Image)
 
 import KnotsLC
+
+useCompositeDistanceField = True
+
+textImg = PrjFrameBuffer "" tix0 $ textRender $ FrameBuffer (ColorImage n1 (V4 0 0 0 1) :. ZT)
+
+textRender :: Exp Obj (FrameBuffer 1 V4F) -> Exp Obj (FrameBuffer 1 V4F)
+textRender = renderText
+  where
+    renderText = Accumulate textFragmentCtx PassAll textFragmentShader textFragmentStream
+    --emptyBuffer = 
+    rasterCtx = TriangleCtx CullNone PolygonFill NoOffset LastVertex
+
+    textFragmentCtx = AccumulationContext Nothing (ColorOp textBlending (V4 True True True True) :. ZT)
+    textBlending = Blend (FuncAdd, FuncAdd) ((One, One), (OneMinusSrcAlpha, One)) zero'
+    textFragmentStream = Rasterize rasterCtx textStream
+    textStream = Transform vertexShader (Fetch "textMesh" Triangles (IV2F "position", IV2F "uv"))
+
+    vertexShader attr = VertexOut point (floatV 1) ZT (Smooth uv :. ZT)
+      where
+        point = v3v4 (transform @*. v2v3 pos)
+        transform = Uni (IM33F "textTransform") :: Exp V M33F
+        (pos, uv) = untup2 attr
+
+    textFragmentShader uv = FragmentOut (pack' (V4 result result result result) :. ZT)
+      where
+        result = step distance
+        distance = case useCompositeDistanceField of
+            False -> SDF.sampleDistance "fontAtlas" uv
+            True -> CDF.sampleDistance "fontAtlas" uv
+        step = smoothstep' (floatF 0.5 @- outlineWidth) (floatF 0.5 @+ outlineWidth)
+        outlineWidth = Uni (IFloat "outlineWidth") :: Exp F Float
 
 texturing1D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
@@ -109,7 +148,7 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
     --fragmentShader :: Exp F (V2F,V3F) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
     fragmentShader (untup4 -> (uv, ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
       where
-        tex = TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
+        tex = imgToTex textImg -- TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
         clr = color tex uv
         
         pos = v4v3 pos'
@@ -145,7 +184,14 @@ copyImg img = renderScreen frag
         sizeI = 1024 :: Word32
         smp i coord = texture' (Sampler LinearFilter ClampToEdge $ Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [i]) coord
 
-texToImg n = renderScreen frag
+texToImg n = PrjFrameBuffer "" tix0 $ texToFB n
+
+texToFB tex = renderScreen' frag
+  where
+    frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
+    frag uv = FragmentOut $ color tex uv :. ZT
+
+slotTexToFB n = renderScreen' frag
   where
     frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
     frag uv = FragmentOut $ color tex uv :. ZT
@@ -158,6 +204,9 @@ imgToTex img = Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [img]
 
 main :: IO ()
 main = main' =<< wires
+
+textStyle = defaultTextStyle { textLetterSpacing = 0.0, textLineHeight = 1.25 }
+fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
 
 main' :: [Wire] -> IO ()
 main' wires = do
@@ -177,7 +226,8 @@ main' wires = do
         frameImage' = PrjFrameBuffer "" tix0 $ foldl addWire emptyFB $ zip (map (("stream" <>) . BS.pack . show) [0..]) wires
 
         frameImage :: Exp Obj (Image 1 V4F)
-        frameImage = renderScreen $ (FragmentOut.(:.ZT).fxScanlines sl frameImage')
+        frameImage = renderScreen $ (FragmentOut.(:.ZT).fxVignette vignette frameImage')
+        --frameImage = renderScreen $ (FragmentOut.(:.ZT).fxScanlines sl frameImage')
         sl    = scanlines { scanlinesFrequency = floatF 128
                           , scanlinesHigh = Const $ V4 0.9 1 1 1
                           , scanlinesLow = Const $ V4 0.45 0.5 0.5 1
@@ -187,8 +237,31 @@ main' wires = do
         addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
         addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
 
-    renderer <- compileRenderer $ ScreenOut frameImage'
+        frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex frameImage'
+
+    renderer <- compileRenderer $ ScreenOut frameImage''
+
     initUtility renderer
+
+    Right font <- loadFontFile "fonts/Zebulon.ttf"
+    let fontRenderer = if useCompositeDistanceField then CDF.fontRenderer else SDF.fontRenderer
+        letterScale = 72
+    atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
+    textMesh <- buildTextMesh atlas textStyle "Hello, gorgeous world!"
+
+    textBuffer <- compileMesh textMesh
+    textObject <- addMesh renderer "textMesh" textBuffer []
+
+    let uniforms = uniformSetter renderer
+        letterScale = atlasLetterScale (atlasOptions atlas)
+        letterPadding = atlasLetterPadding (atlasOptions atlas)
+        scale = 0.1
+        ofsX = -0.9
+        ofsY = 0
+    uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
+
+    uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
+    uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
 
     let uniformMap      = uniformSetter renderer
         texture         = uniformFTexture2D "myTextureSampler" uniformMap

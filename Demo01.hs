@@ -24,14 +24,17 @@ import System.Random
 
 {-
   demo skeleton:
+    done -- 1.5 - text stripes using lafonten
+    1.5 - loading screen
+    1.5 - create 2d texture with diagrams-rasterific
+
+    camera support it should run on a cuve calculated on CPU
+
     switch between 2 scenes
-    create 2d texture with diagrams-rasterific
     modulate an effect parameter with a time varying function
-    loading screen
-    text stripes using lafonten
     distorted glass effect
     shadow mapping
-    camera support it should run on a cuve calculated on CPU
+    preprocess music store various events list
 -}
 
 points :: Mesh
