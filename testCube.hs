@@ -13,6 +13,7 @@ import Data.Vect
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
+import Control.Concurrent
 
 import Sound.ProteaAudio
 
@@ -288,7 +289,7 @@ smp t = Sampler LinearFilter ClampToEdge t
 copyImg img = renderScreen frag
   where
     frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
-    frag uv = FragmentOut $ color :. ZT
+    frag uv = FragmentOut $ color {-@* (Uni (IFloat "brightness") :: Exp F Float)-} :. ZT
       where
         color = smp img uv
         sizeI = 1024 :: Word32
@@ -353,8 +354,8 @@ main' wires = do
 
     -- loading screen
     loadingRenderer <- compileRenderer $ ScreenOut loadingImage
+    initUtility loadingRenderer
     setScreenSize loadingRenderer 1024 768
-
 
     do
       -- text
@@ -376,6 +377,7 @@ main' wires = do
 
       uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
       uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
+      uniformFloat "brightness" uniforms 1
 
       render loadingRenderer
       swapBuffers
@@ -497,11 +499,32 @@ main' wires = do
 
     initAudio 2 44100 1024
     smp <- sampleFromFile "music/Take_Them.ogg" 1
-    soundPlay smp 1 1 0 1
+    {-
+    forM_ [1,0.9..0] $ \b -> do
+      --uniformFloat "brightness" loadingUniforms b
+      let uniforms = uniformSetter loadingRenderer
+          scale = 0.1
+          ofsX = -0.85 + (exp ((1-b) * 1.8) - 1) * 3
+          ofsY = 0
+
+      uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
+      render loadingRenderer
+      swapBuffers
+      threadDelay 2000
+    -}
+    uniformFloat "brightness" uniformMap 1
 
     resetTime
+    soundPlay smp 1 1 0 1
+
     loop
-    finishAudio
+    soundStop smp
 
     dispose renderer
     closeWindow
+
+    let waitAudio = do
+          n <- soundActive
+          if n == 0 then return () else waitAudio
+    waitAudio
+    finishAudio
