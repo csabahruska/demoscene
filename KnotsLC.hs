@@ -16,26 +16,26 @@ import Control.Applicative hiding (Const)
 import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad.Reader
+import Control.Monad.Identity
 import Control.Monad.Cont
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.ByteString.Char8 as BS
 
-import qualified Knot as K
-import Knot hiding (V3, V2)
-import qualified AD as K
-import AD hiding (Exp, Var, Let)
+import Knot
+import AD
 import Data.Reify.Graph
 
-import LambdaCube.GL
+import LambdaCube.GL hiding (Exp, Var, Let, V3, V2)
+import qualified LambdaCube.GL as LC
 
 ---------------------
 
-wires :: IO [Wire]
+wires :: IO [Wire ExpV1]
 wires = execWriterT $ do
-    wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
-    wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
-    wire2DNorm False 200 20 $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
+    tellWire $ Wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
+    tellWire $ wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
+    tellWire $ wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
 --    wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
@@ -48,11 +48,11 @@ wires = execWriterT $ do
 --    wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
 --    wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
 
-    wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
+    tellWire $ Wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
 --    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
 --    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
-    wire2DNormAlpha True 2000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
-                                (Just $ \(K.V2 x y) -> K.V3 x 1 y) (Just $ \(K.V2 x y) -> y)
+    tellWire $ wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
+                                (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
 
 --    wire2DNorm True 2 2 $ planeXY
 
@@ -64,92 +64,75 @@ wires = execWriterT $ do
         magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) .
         planeZY
 -}
-    wire2DNorm False 500 10 $ tubularPatch (mulSV3 3 . lissajousKnot (K.V3 3 4 7) (K.V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot)
+    tellWire $ wire2DNorm False 500 10 $ tubularPatch (mulSV3 3 . lissajousKnot (V3 3 4 7) (V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot)
 
 --    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (Just $ sin . normV2)
   where
     env = magnify 2 . tubularNeighbourhood (helix 0.9 (sin time + 1.5)) . tubularNeighbourhood (helix 0.3 0.5 . (+ 0.5 * sin (2 * time))) . tubularNeighbourhood (helix 0.1 (0.5/3) . (+ 0.03 * sin (10 * time)))
 
-    env2 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> K.V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)
+    env2 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)
 
-    env3 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> K.V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . logarithmicSpiral 0.1 0.04)
+    env3 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . logarithmicSpiral 0.1 0.04)
 
 tt = 300
 
 ---------------------
 
-type ExpV1 = Exp V Float
-type ExpV3 = (ExpV1, ExpV1, ExpV1)
+type ExpV1 = LC.Exp V Float
+type ExpV3 = V3 ExpV1
 
-type OnPlane a = ExpV1 -> ExpV1 -> a
-
-data Wire
-    = Wire1D Int (ExpV1 -> ExpV3)
+data Wire e
+    = Wire1D Int (e -> V3 e)
     | Wire2D
         { wTwosided  :: Bool
         , wXResolution :: Int
         , wYResolution :: Int
-        , wVertex    :: OnPlane ExpV3
-        , wNormal    :: Maybe (OnPlane ExpV3)
-        , wColor     :: Maybe (OnPlane ExpV3)
-        , wAlpha     :: Maybe (OnPlane ExpV1)
+        , wVertex    :: V2 e -> V3 e
+        , wNormal    :: Maybe (V2 e -> V3 e)
+        , wColor     :: Maybe (V2 e -> V3 e)
+        , wAlpha     :: Maybe (V2 e -> e)
         }
     -- sprite
     -- color
     -- normal
 
-wire1D :: Int -> Curve -> WriterT [Wire] IO ()
-wire1D i ff = do
-    K.V3 fx fy fz <- lift $ traverse transExp $ ff "t"
-    tell [Wire1D i $ \t -> let env = M.singleton "t" t in (fx env, fy env, fz env)]
+wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire Exp
+wire2DNorm t i j v = Wire2D t i j v (Just $ normalPatch v) Nothing Nothing
 
-wire2DNorm :: Bool -> Int -> Int -> Patch -> WriterT [Wire] IO ()
-wire2DNorm twosided i j ff = do
-    K.V3 fx fy fz <- lift $ traverse transExp $ ff (K.V2 "t" "s")
-    K.V3 nx ny nz <- lift $ traverse transExp $ (normalPatch ff) (K.V2 "t" "s")
-    tell [Wire2D twosided i j 
-            (\t s -> let env = M.fromList [("t",t),("s",s)] in (fx env, fy env, fz env))
-            (Just $ \t s -> let env = M.fromList [("t",t),("s",s)] in (nx env, ny env, nz env))
-            Nothing
-            Nothing
-         ]
+wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire Exp
+wire2DNormAlpha t i j v c a = Wire2D t i j v (Just $ normalPatch v) c a
 
-wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (K.V2 K.Exp -> K.V3 K.Exp) -> Maybe (K.V2 K.Exp -> K.Exp) -> WriterT [Wire] IO ()
-wire2DNormAlpha twosided i j ff color alpha = do
-    K.V3 fx fy fz <- lift $ traverse transExp $ ff (K.V2 "t" "s")
-    K.V3 nx ny nz <- lift $ traverse transExp $ (normalPatch ff) (K.V2 "t" "s")
-    alpha' <- sequenceA $ fmap (lift . transExp . ($ K.V2 "t" "s")) alpha
-    color' <- sequenceA $ fmap (lift . traverse transExp . ($ K.V2 "t" "s")) color
-    tell [Wire2D 
-            { wTwosided = twosided
-            , wXResolution = i
-            , wYResolution = j 
-            , wVertex = \t s -> let env = M.fromList [("t",t),("s",s)] in (fx env, fy env, fz env)
-            , wNormal = Just $ \t s -> let env = M.fromList [("t",t),("s",s)] in (nx env, ny env, nz env)
-            , wColor = fmap (\(K.V3 fr fg fb) t s -> let env = M.fromList [("t",t),("s",s)] in (fr env, fg env, fb env)) color'
-            , wAlpha = fmap (\f t s -> let env = M.fromList [("t",t),("s",s)] in f env) alpha'
-            }
-         ]
+tellWire :: Wire Exp -> WriterT [Wire ExpV1] IO ()
+tellWire = tell . (:[]) <=< lift . transWire
 
+transWire :: Wire Exp -> IO (Wire ExpV1)
+transWire (Wire1D i f) = Wire1D <$> pure i <*> transFun "t" f
+transWire (Wire2D b i j v n c a) = Wire2D <$> pure b <*> pure i <*> pure j <*> transFun2 "t" "s" v <*> traverse (transFun2 "t" "s") n <*> traverse (transFun2 "t" "s") c <*> (fmap (fmap runIdentity) <$> traverse (transFun2 "t" "s") (fmap Identity <$> a))
 
-type ST = IM.IntMap (Either (Exp_ Unique) (Exp V Float))
+transFun :: Traversable f => String -> (Exp -> f Exp) -> IO (ExpV1 -> f ExpV1)
+transFun s f = fmap (\e t -> fmap ($ M.singleton s t) e) . traverse transExp $ f $ Var s
 
-transExp :: K.Exp -> IO (M.Map String (Exp V Float) -> Exp V Float)
+transFun2 :: Traversable f => String -> String -> (V2 Exp -> f Exp) -> IO (V2 ExpV1 -> f ExpV1)
+transFun2 s1 s2 f = fmap (\e (V2 t1 t2) -> fmap ($ M.fromList [(s1,t1), (s2,t2)]) e) . traverse transExp $ f $ V2 (Var s1) (Var s2)
+
+type ST = IM.IntMap (Either (Exp_ Unique) (LC.Exp V Float))
+
+transExp :: Exp -> IO (M.Map String ExpV1 -> ExpV1)
 transExp x = (\(Graph rx x) env -> transExp_ x env (IM.map Left $ IM.fromList rx) const) <$> reify x
    where
     transExp_
         :: Unique
-        -> M.Map String (Exp V Float)
+        -> M.Map String ExpV1
         -> ST
-        -> (Exp V Float -> ST -> Exp V Float)
-        -> Exp V Float
+        -> (ExpV1 -> ST -> ExpV1)
+        -> ExpV1
 
     transExp_ x env st cont_ = case st IM.! x of
         Right ex -> cont_ ex st
         Left e -> flip (runCont $ traverse (\i -> cont $ \co st -> transExp_ i env st co) e) st $ \xx st ->
-          flip Let (\rr -> cont_ rr $ IM.insert x (Right rr) st) $ case xx of
+          flip LC.Let (\rr -> cont_ rr $ IM.insert x (Right rr) st) $ case xx of
             C_ f        -> Const f
-            K.Var_ s    -> fromMaybe (Uni (IFloat $ BS.pack s)) $ M.lookup s env
+            Var_ s    -> fromMaybe (Uni (IFloat $ BS.pack s)) $ M.lookup s env
             Add_ e f    -> (@+) e f
             Neg_ e      -> neg' e
             Mul_ e f    -> (@*) e f
@@ -166,13 +149,13 @@ transExp x = (\(Graph rx x) env -> transExp_ x env (IM.map Left $ IM.fromList rx
             ASinh_ e    -> asinh' e
             ACosh_ e    -> acosh' e
             ATanh_ e    -> atanh' e
-            K.Exp_ e    -> exp' e
+            Exp_ e    -> exp' e
             Log_ e      -> log' e
 
 
-instance Timed K.Exp where
+instance Timed Exp where
     time = "time"
 
-testComplexity = (normalPatch $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)) $ K.V2 "x" "y"  :: K.V3 K.Exp
-testComplexity' = (normalPatch $ tubularPatch (mulSV3 0.1 . unKnot) (mulSV3 0.1 . unKnot)) $ K.V2 "x" "y"  :: K.V3 K.Exp
+testComplexity = (normalPatch $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp
+testComplexity' = (normalPatch $ tubularPatch (mulSV3 0.1 . unKnot) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp
 

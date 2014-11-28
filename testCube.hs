@@ -35,6 +35,7 @@ import Graphics.Text.TrueType
 import Codec.Image.STB hiding (Image)
 
 import KnotsLC
+import qualified Knot
 
 import Math.Noise hiding (zero)
 import Math.Noise.Modules.Billow
@@ -119,7 +120,7 @@ textRender = renderText
         step = smoothstep' (floatF 0.5 @- outlineWidth) (floatF 0.5 @+ outlineWidth)
         outlineWidth = Uni (IFloat "outlineWidth") :: Exp F Float
 
-texturing1D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing1D :: Wire (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
@@ -144,7 +145,7 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
         v4 = case wire of
             Wire1D _ f -> modelViewProj @*. (pack' $ V4 fx fy fz (Const 1))
               where
-                (fx, fy, fz) = f x
+                Knot.V3 fx fy fz = f x
 
         V2 x y = unpack' uv
 
@@ -159,7 +160,7 @@ data VertFrag where
             -> (Exp F a -> FragmentOut (Depth Float :+: Color V4F :+: ZZ))
             -> VertFrag
 
-texturing2D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing2D :: Wire (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing2D wire@(Wire2D {..})
     = texturing2D_ wire vertFrag
   where
@@ -172,14 +173,14 @@ texturing2D wire@(Wire2D {..})
                 v4 = modelViewProj @*. ps
                 pos = modelView @*. ps
                 ps = pack' $ V4 fx fy fz (Const 1)
-                (fx, fy, fz) = wVertex x y
-                alpha = maybe (Const 1) (\trp -> trp x y) wAlpha
-                color = case fcolor x y of (r,g,b) -> pack' $ V3 r g b
+                Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
+                alpha = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
+                color = case fcolor $ Knot.V2 x y of Knot.V3 r g b -> pack' $ V3 r g b
                 ns_ = case wNormal of
                     Nothing -> Const zero' --undefined
                     Just fn -> pack' $ V3 nx ny nz
                       where
-                        (nx, ny, nz) = fn x y
+                        Knot.V3 nx ny nz = fn $ Knot.V2 x y
 
                 V2 x y = unpack' uv
 
@@ -209,13 +210,13 @@ texturing2D wire@(Wire2D {..})
                     Wire2D {..} -> (modelViewProj @*. ps, ns_, modelView @*. ps, transparency)
                       where
                         ps = pack' $ V4 fx fy fz (Const 1)
-                        (fx, fy, fz) = wVertex x y
-                        transparency = maybe (Const 1) (\trp -> trp x y) wAlpha
+                        Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
+                        transparency = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
                         ns_ = case wNormal of
                             Nothing -> Const zero' --undefined
                             Just fn -> pack' $ V3 nx ny nz
                               where
-                                (nx, ny, nz) = fn x y
+                                Knot.V3 nx ny nz = fn $ Knot.V2 x y
 
                 V2 x y = unpack' uv
 
@@ -247,7 +248,7 @@ texturing2D wire@(Wire2D {..})
 
 
 
-texturing2D_ :: Wire -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing2D_ :: Wire (Exp V Float) -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing2D_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
@@ -316,7 +317,7 @@ main = main' =<< wires
 textStyle = defaultTextStyle { textLetterSpacing = 0.0, textLineHeight = 1.25 }
 fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
 
-main' :: [Wire] -> IO ()
+main' :: [Wire (Exp V Float)] -> IO ()
 main' wires = do
     initialize
     openWindow defaultDisplayOptions

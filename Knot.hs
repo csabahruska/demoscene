@@ -128,6 +128,11 @@ rotateXY t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
   where
     (s, c) = sinCos t
 
+rotateXZ :: Floating s => s -> SpaceTrS s
+rotateXZ t (V3 x y z) = V3 (c * x - s * z) y (s * x + c * z)
+  where
+    (s, c) = sinCos t
+
 rotateYZ :: Float -> SpaceTr
 rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)
   where
