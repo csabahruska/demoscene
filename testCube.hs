@@ -62,8 +62,9 @@ distortFX img = Accumulate fragCtx PassAll frag rast clear
     up = Uni (IFloat "up")
     down = Uni (IFloat "down")
     time = Uni (IFloat "time")
+    on = Uni (IBool "on")
     frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
-    frag uv' = FragmentOut $ c :. ZT
+    frag uv' = FragmentOut $ Cond on c texel2 :. ZT
       where
         c = Cond (down @< r @&& r @< up) (mask @+ (texel2 @* floatF 0.3)) $
             Cond (down @< r) (pack' $ V4 tR tG tB (floatF 1)) texel2
@@ -327,7 +328,7 @@ main' wires = do
         , displayOptions_openGLProfile      = CoreProfile
         , displayOptions_numDepthBits       = 24
         }
-    setWindowTitle "LambdaCube 3D Textured Cube"
+    setWindowTitle "Demo by Lambda"
 
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
@@ -346,7 +347,7 @@ main' wires = do
         addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
         addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
 
-        frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex $ {-PrjFrameBuffer "" tix0 $ distortFX-} frameImage'
+        frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex $ PrjFrameBuffer "" tix0 $ distortFX frameImage'
 
         loadingImage = PrjFrameBuffer "" tix0 $ textRender $ FrameBuffer (ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
@@ -483,9 +484,11 @@ main' wires = do
             proj $! mat4ToM44F $! pm
             time $ realToFrac t
             let s = sin t' * 0.5 + 0.5
-                t' = realToFrac $ 1.5 * t
-            uniformFloat "down" uniformMap s
-            uniformFloat "up" uniformMap (s+0.01)
+                t' = realToFrac $ 0.5 * t
+                ti = floor t
+            uniformBool "on" uniformMap $ ti `mod` 5 == 0
+            uniformFloat "down" uniformMap $ s
+            uniformFloat "up" uniformMap $ (s+0.01)
             render renderer
             swapBuffers
 
