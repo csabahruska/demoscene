@@ -74,6 +74,8 @@ crossV3 (V3 x0 y0 z0) (V3 x1 y1 z1) = V3 x y z
 transpose32 :: V3 (V2 s) -> V2 (V3 s)
 transpose32 (V3 (V2 x0 y0) (V2 x1 y1) (V2 x2 y2)) = V2 (V3 x0 x1 x2) (V3 y0 y1 y2)
 
+sinCos phi = (sin phi, cos phi)
+
 ------------------------------- timed computations
 
 class Floating a => Timed a where
@@ -90,21 +92,6 @@ instance (Timed a, Reifies s Tape) => Timed (Reverse s a) where
 
 type SpaceTr = forall s . Timed s => V3 s -> V3 s    -- moving frame
 
-sinCos phi = (sin phi, cos phi)
-
-projectionZ :: SpaceTr
-projectionZ (V3 x y z) = V3 (z * x) (z * y) z
-
-twistZ :: SpaceTr
-twistZ (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
-  where
-    (s, c) = sinCos z
-
-invPolarXY :: SpaceTr
-invPolarXY (V3 x y z) = V3 (x * c) (x * s) z
-  where
-    (s, c) = sinCos y
-
 translateX :: RealFloat t => t -> SpaceTr
 translateX t (V3 x y z) = V3 (realToFrac t + x) y z
 
@@ -114,13 +101,11 @@ translateY t (V3 x y z) = V3 x (realToFrac t + y) z
 translateZ :: Float -> SpaceTr
 translateZ t (V3 x y z) = V3 x y (realToFrac t + z)
 
-rotateYZ :: Float -> SpaceTr
-rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)
-  where
-    (s, c) = sinCos $ realToFrac t
-
 magnifyX :: Float -> SpaceTr
 magnifyX t (V3 x y z) = V3 (realToFrac t * x) y z
+
+magnifyY :: Float -> SpaceTr
+magnifyY t (V3 x y z) = V3 x (realToFrac t * y) z
 
 magnifyZ :: Float -> SpaceTr
 magnifyZ t (V3 x y z) = V3 x y (realToFrac t * z)
@@ -128,74 +113,31 @@ magnifyZ t (V3 x y z) = V3 x y (realToFrac t * z)
 magnify :: Float -> SpaceTr
 magnify = mulSV3 . realToFrac
 
-------------------------------- Curves and patches
-
-type Curve = forall s . Timed s => s -> V3 s         -- [0,1] -> R3
-type Patch = forall s . Timed s => V2 s -> V3 s      -- [0,1] x [0,1] -> R3
-type Frame = forall s . Timed s => s -> V3 (V3 s)    -- moving frame
-
--------- sampling
-
-sampleCurve :: (Fractional s) => Int -> (s -> a) -> [a]
-sampleCurve n curve =
-    [ curve (fromIntegral t / fromIntegral n)
-    | t <- [0..n] ]
-
-samplePatch :: (Fractional s) => Int -> Int -> (V2 s -> a) -> [a]
-samplePatch n m patch =
-    [ patch (V2 (fromIntegral t / fromIntegral n) (fromIntegral u / fromIntegral m))
-    | t <- [0..n]
-    , u <- [0..m] ]
-
--------- combinators
-
-diagonalCurve :: Patch -> Curve
-diagonalCurve patch = patch . pure
-
--- compute the normal vector bundle of a curve (not normalized)
-normalCurve :: Curve -> Curve
-normalCurve c = diffF c
-
--- compute the Frenet frame of a curve
--- http://en.wikipedia.org/wiki/Frenet%E2%80%93Serret_formulas
-frenetFrame :: Curve -> Frame
-frenetFrame c = liftA2 cross (unitV3 . c'') (unitV3 . c')
+rotateYZ :: Float -> SpaceTr
+rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)
   where
-    c' = normalCurve c
-    c'' = normalCurve c'
-    cross i k = V3 i (crossV3 k i) k
+    (s, c) = sinCos $ realToFrac t
 
-{-
-http://en.wikipedia.org/wiki/Tubular_neighborhood
-http://en.wikipedia.org/wiki/Vector_bundle
--}
-tubularPatch :: Curve -> Curve -> Patch
-tubularPatch path = \mask (V2 t u) -> path t + mulMV3 (frame t) (mask u)
+projectionZ :: SpaceTr
+projectionZ (V3 x y z) = V3 (z * x) (z * y) z
+
+twistZ :: Float -> SpaceTr
+twistZ t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
   where
-    frame = frenetFrame path
+    (s, c) = sinCos $ (2 * pi * realToFrac t) * z
+
+invPolarXY :: SpaceTr
+invPolarXY (V3 x y z) = V3 (x * c) (x * s) z
+  where
+    (s, c) = sinCos ((2*pi) * y)
 
 tubularNeighbourhood :: Curve -> SpaceTr
 tubularNeighbourhood c = \(V3 x y z) -> c z + mulMV3 (frenetFrame c z) (V3 x y 0)
 
--- compute the normal vector bundle of a patch
-normalPatch :: Patch -> Patch
-normalPatch patch v = crossV3 du dt
-  where
-    V2 du dt = transpose32 . jacobian patch $ v
+------------------------------- Curves
 
------- predefined curves and patches
-
-planeXY :: Patch
-planeXY (V2 x y) = V3 x y 0
-
-planeYZ :: Patch
-planeYZ (V2 x y) = V3 0 x y
-
-planeZY :: Patch
-planeZY (V2 x y) = V3 0 y x
-
-planeZX :: Patch
-planeZX (V2 x y) = V3 y 0 x
+type CurveS s = s -> V3 s
+type Curve = forall s . Timed s => s -> V3 s         -- [0,1] -> R3
 
 lineX :: Curve
 lineX x = V3 x 0 0
@@ -210,6 +152,17 @@ unKnot :: Curve
 unKnot t = V3 (cos w) (sin w) 0
   where
     w = 2 * pi * t
+
+helix :: Timed a => a -> a -> CurveS a
+helix rad pitch = cu . (/ len)
+  where
+    cu t = V3 (rad * c) (rad * s) (b * t)
+      where
+        (s, c) = sinCos t
+    b = pitch / (2*pi)
+
+    len = sqrt (rad ^ 2 + b ^ 2)
+
 
 -- TODO: generalize to (Curve -> Curve)?
 torusKnot :: Integer -> Integer -> Curve
@@ -227,5 +180,75 @@ lissajousKnot (V3 nx ny nz) (V3 px py pz) t = V3 x y z
     y = cos $ 2 * pi * (fromInteger ny * t + fromRational py)
     z = cos $ 2 * pi * (fromInteger nz * t + fromRational pz)
 
+diagonalCurve :: Patch -> Curve
+diagonalCurve patch = patch . pure
+
+-- compute the normal vector bundle of a curve (not normalized)
+normalCurve :: Curve -> Curve
+normalCurve c = diffF c
+
+------------------------------- Frames
+
+type Frame = forall s . Timed s => s -> V3 (V3 s)    -- moving frame
+
+-- compute the Frenet frame of a curve
+-- http://en.wikipedia.org/wiki/Frenet%E2%80%93Serret_formulas
+frenetFrame :: Curve -> Frame
+frenetFrame c = liftA2 cross (unitV3 . c'') (unitV3 . c')
+  where
+    c' = normalCurve c
+    c'' = normalCurve c'
+    cross i k = V3 i (crossV3 k i) k
+
+------------------------------- Patches
+
+type Patch = forall s . Timed s => V2 s -> V3 s      -- [0,1] x [0,1] -> R3
+
+planeXY :: Patch
+planeXY (V2 x y) = V3 x y 0
+
+planeYZ :: Patch
+planeYZ (V2 x y) = V3 0 x y
+
+planeZY :: Patch
+planeZY (V2 x y) = V3 0 y x
+
+planeZX :: Patch
+planeZX (V2 x y) = V3 y 0 x
+
+cylinderZ :: Float -> Patch
+cylinderZ dia = invPolarXY . translateX dia . planeZY
+
+{-
+http://en.wikipedia.org/wiki/Tubular_neighborhood
+http://en.wikipedia.org/wiki/Vector_bundle
+-}
+tubularPatch :: Curve -> Curve -> Patch
+tubularPatch path = \mask (V2 t u) -> path t + mulMV3 (frame t) (mask u)
+  where
+    frame = frenetFrame path
+
+-- compute the normal vector bundle of a patch
+normalPatch :: Patch -> Patch
+normalPatch patch v = crossV3 du dt
+  where
+    V2 du dt = transpose32 . jacobian patch $ v
+
 torus :: Patch
 torus = tubularPatch (mulSV3 4 . unKnot) unKnot
+
+----------------------------- sampling
+
+sampleCurve :: (Fractional s) => Int -> (s -> a) -> [a]
+sampleCurve n curve =
+    [ curve (fromIntegral t / fromIntegral n)
+    | t <- [0..n] ]
+
+samplePatch :: (Fractional s) => Int -> Int -> (V2 s -> a) -> [a]
+samplePatch n m patch =
+    [ patch (V2 (fromIntegral t / fromIntegral n) (fromIntegral u / fromIntegral m))
+    | t <- [0..n]
+    , u <- [0..m] ]
+
+
+

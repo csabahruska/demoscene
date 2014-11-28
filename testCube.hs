@@ -217,7 +217,7 @@ main' wires = do
             k <- keyIsPressed KeyEsc
             unless k $ loop
 
-    initAudio 64 44100 1024
+    initAudio 2 44100 1024
     smp <- sampleFromFile "music/Take_Them.ogg" 1
     soundPlay smp 1 1 0 1
 
