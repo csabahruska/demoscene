@@ -24,15 +24,14 @@ import System.Random
 
 {-
   demo skeleton:
-    done -- 1.5 - text stripes using lafonten
-    1.5 - loading screen
-    1.5 - create 2d texture with diagrams-rasterific
+    done - 1.5 - text stripes using lafonten
+    done - distorted glass effect
+    done - 1.5 - loading screen
 
     camera support it should run on a cuve calculated on CPU
 
     switch between 2 scenes
     modulate an effect parameter with a time varying function
-    distorted glass effect
     shadow mapping
     preprocess music store various events list
 -}

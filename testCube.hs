@@ -31,6 +31,58 @@ import Codec.Image.STB hiding (Image)
 
 import KnotsLC
 
+import Math.Noise hiding (zero)
+import Math.Noise.Modules.Billow
+import Data.Maybe
+import Data.Bitmap.Pure
+
+renderTextureSize = 1024
+
+distortFX :: Exp Obj (Image 1 V4F) -> Exp Obj (FrameBuffer 1 V4F)
+distortFX img = Accumulate fragCtx PassAll frag rast clear
+  where
+    fragCtx = AccumulationContext Nothing $ ColorOp NoBlending (one' :: V4B):.ZT
+    clear   = FrameBuffer (ColorImage n1 (V4 1 0 0 1):.ZT)
+    rast    = Rasterize triangleCtx prims
+    prims   = Transform vert input
+    input   = Fetch "ScreenQuad" Triangles (IV2F "position")
+
+    vert :: Exp V V2F -> VertexOut () V2F
+    vert uv = VertexOut v4 (Const 1) ZT (NoPerspective uv:.ZT)
+      where
+        v4      = pack' $ V4 u v (floatV 1) (floatV 1)
+        V2 u v  = unpack' uv
+
+    up = Uni (IFloat "up")
+    down = Uni (IFloat "down")
+    time = Uni (IFloat "time")
+    frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
+    frag uv' = FragmentOut $ c :. ZT
+      where
+        c = Cond (down @< r @&& r @< up) (mask @+ (texel2 @* floatF 0.3)) $
+            Cond (down @< r) (pack' $ V4 tR tG tB (floatF 1)) texel2
+        texel = smp "DistorsionTex" uv
+        texel2 = smp' img uv
+        {-
+        fnUV v = smp' img (uv @+ rot @* off @+ v @* floatF 0.3)
+        V3 oR oG oB = unpack' $ (noise3' uv :: Exp F V3F)
+        V4 tR _ _ _ = unpack' $ fnUV oR
+        V4 _ tG _ _ = unpack' $ fnUV oG
+        V4 _ _ tB _ = unpack' $ fnUV oB
+        -}
+        V4 tR tG tB _ = unpack' $ smp' img (uv @+ rot @* off)
+        mask = pack' $ V4 (floatF 0.1) (floatF 0.5) (floatF 1) (floatF 1)
+        V4 r' g b a = unpack' texel
+        r = g
+        V2 u v = unpack' uv
+        uv = uv' @* floatF 0.5 @+ floatF 0.5
+        off = (pack' $ V2 r (r @* r)) @* (floatF 0.1 @+ floatF 0.32 @* (sin' (time @* floatF 6) :: Exp F Float))
+        t = time @* floatF 10
+        rot = pack' $ V2 (fract' (t @* floatF 0.1)) (floatF 0) :: Exp F V2F
+        smp n uv = texture' (Sampler LinearFilter ClampToEdge $ TextureSlot n $ Texture2D (Float RGBA) n1) uv
+        smp' i uv = texture' (Sampler LinearFilter ClampToEdge $ Texture (Texture2D (Float RGBA) n1) (V2 renderTextureSize renderTextureSize) NoMip [i]) uv
+
+
 useCompositeDistanceField = True
 
 textImg = PrjFrameBuffer "" tix0 $ textRender $ FrameBuffer (ColorImage n1 (V4 0 0 0 1) :. ZT)
@@ -148,7 +200,7 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
     --fragmentShader :: Exp F (V2F,V3F) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
     fragmentShader (untup4 -> (uv, ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
       where
-        tex = imgToTex textImg -- TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
+        tex = {-imgToTex textImg-} TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
         clr = color tex uv
         
         pos = v4v3 pos'
@@ -237,16 +289,43 @@ main' wires = do
         addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
         addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
 
-        frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex frameImage'
+        frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex $ PrjFrameBuffer "" tix0 $ distortFX frameImage'
 
-    renderer <- compileRenderer $ ScreenOut frameImage''
+        loadingImage = PrjFrameBuffer "" tix0 $ textRender $ FrameBuffer (ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
-    initUtility renderer
+    -- loading screen
+    loadingRenderer <- compileRenderer $ ScreenOut loadingImage
+    setScreenSize loadingRenderer 1024 768
 
+    -- text
     Right font <- loadFontFile "fonts/Zebulon.ttf"
     let fontRenderer = if useCompositeDistanceField then CDF.fontRenderer else SDF.fontRenderer
         letterScale = 72
     atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
+
+    do
+      textMesh <- buildTextMesh atlas textStyle "Loading..."
+      textBuffer <- compileMesh textMesh
+      textObject <- addMesh loadingRenderer "textMesh" textBuffer []
+
+      let uniforms = uniformSetter loadingRenderer
+          letterScale = atlasLetterScale (atlasOptions atlas)
+          letterPadding = atlasLetterPadding (atlasOptions atlas)
+          scale = 0.1
+          ofsX = -0.9
+          ofsY = 0
+      uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
+
+      uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
+      uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
+
+      render loadingRenderer
+      swapBuffers
+
+    -- main scene
+    renderer <- compileRenderer $ ScreenOut frameImage''
+    initUtility renderer
+
     textMesh <- buildTextMesh atlas textStyle "Hello, gorgeous world!"
 
     textBuffer <- compileMesh textMesh
@@ -262,6 +341,51 @@ main' wires = do
 
     uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
     uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
+
+    -- distorsion
+    let p   = perlin
+        clamp :: Double -> Word8
+        clamp = floor . max 0 . min 255
+        calc noiseF w h i j = (\v ->  (v + 1.0) * 127.5 ) $ noiseClampedVal
+          where
+            boundBottomX :: Double
+            boundBottomX = 0.0
+            boundBottomY :: Double
+            boundBottomY = 0.0
+            boundUpperX :: Double
+            boundUpperX = 10.0
+            boundUpperY :: Double
+            boundUpperY = 10.0
+            xsize = w
+            ysize = h
+            xIncrement :: Double
+            xIncrement = (boundUpperX - boundBottomX) / (fromIntegral xsize)
+            yIncrement :: Double
+            yIncrement = (boundUpperY - boundBottomY) / (fromIntegral ysize)
+            xPos x = ((fromIntegral x) * xIncrement)  +  boundBottomX
+            yPos y = ((fromIntegral y) * yIncrement)  +  boundBottomY
+
+            --noiseF :: NoiseModule
+            --noiseF = gen perlin { perlinFrequency = 0.6, perlinOctaves = 5, perlinSeed = seed }
+            --noiseF = gen billow { billowFrequency = 0.6, billowOctaves = 5 }
+
+            -- Actual noise computation, getValue returns Maybe Double
+            noiseValue = fromMaybe (-1.0) $ getValue noiseF (xPos i, yPos j, 2.123)
+            -- Make sure the noiseValue is in the [-1.0, 1.0] range
+            noiseClampedVal = if noiseValue > 1.0 
+                                 then 1.0
+                                 else if noiseValue < (-1.0) then (-1.0)
+                                                             else noiseValue
+        
+        ch1 = createSingleChannelBitmap (512,512) Nothing (\i j -> clamp $
+            calc (gen perlin { perlinFrequency = 0.6, perlinOctaves = 5, perlinSeed = 123 }) 512 512 i j)
+        ch2 = createSingleChannelBitmap (512,512) Nothing (\i j -> clamp $
+            calc (gen perlin { perlinFrequency = 1.1, perlinOctaves = 9, perlinSeed = 123 }) 512 512 i j)
+        ch3 = createSingleChannelBitmap (512,512) Nothing (\i j -> clamp $
+            calc (gen perlin { perlinFrequency = 0.6, perlinOctaves = 5, perlinSeed = 125 }) 512 512 i j)
+        img = combineChannels [ch1,ch2,ch3] Nothing
+
+    uniformFTexture2D "DistorsionTex" uniforms =<< compileTexture2DRGBAF False True img
 
     let uniformMap      = uniformSetter renderer
         texture         = uniformFTexture2D "myTextureSampler" uniformMap
@@ -291,6 +415,10 @@ main' wires = do
             mv $! mat4ToM44F $! mm .*. cm
             proj $! mat4ToM44F $! pm
             time $ realToFrac t
+            let s = sin t' * 0.5 + 0.5
+                t' = realToFrac $ 1.5 * t
+            uniformFloat "down" uniformMap s
+            uniformFloat "up" uniformMap (s+0.01)
             render renderer
             swapBuffers
 
