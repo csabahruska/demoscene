@@ -8,6 +8,7 @@
 module Knot where
 
 import Data.Foldable
+import Data.Ratio
 import Data.Traversable
 import Control.Applicative
 import Control.Monad
@@ -219,6 +220,12 @@ torusKnot p q t = V3 (r * cos p') (r * sin p') (-sin q')
     q' = w * fromInteger q
     r = cos q' + 2
 
+lissajousKnot :: V3 Integer -> V3 Rational -> Curve
+lissajousKnot (V3 nx ny nz) (V3 px py pz) t = V3 x y z
+  where
+    x = cos $ 2 * pi * (fromInteger nx * t + fromRational px)
+    y = cos $ 2 * pi * (fromInteger ny * t + fromRational py)
+    z = cos $ 2 * pi * (fromInteger nz * t + fromRational pz)
+
 torus :: Patch
 torus = tubularPatch (mulSV3 4 . unKnot) unKnot
-

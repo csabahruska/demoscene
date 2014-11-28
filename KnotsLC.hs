@@ -78,13 +78,14 @@ wires = execWriterT $ do
     wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
     wire2DNorm 50 50 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     wire2DNorm 200 80 $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
-    wire2DNorm 50 50 $ magnifyZ 100 . projectionZ . magnifyZ 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . planeZY
 {-
-    wire2DNorm 50 50 $ 
+    wire2DNorm 50 50 $ magnifyZ 100 . projectionZ . magnifyZ 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . planeZY
+    wire2DNorm 50 50 $
         magnify 100 . projectionZ . magnify 0.01 . invPolarXY . rotateYZ (- pi / 4) . magnify (8 * pi) . translateX (-2) . magnifyZ 0.1 .
-        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . 
+        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) .
         planeZY
 -}
+    wire2DNorm 2048 128 $ tubularPatch (mulSV3 3 . lissajousKnot (K.V3 3 4 7) (K.V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot)
   where
     wire1D :: Int -> Curve -> WriterT [Wire] IO ()
     wire1D i ff = do
