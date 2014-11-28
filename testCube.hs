@@ -297,13 +297,13 @@ main' wires = do
     loadingRenderer <- compileRenderer $ ScreenOut loadingImage
     setScreenSize loadingRenderer 1024 768
 
-    -- text
-    Right font <- loadFontFile "fonts/Zebulon.ttf"
-    let fontRenderer = if useCompositeDistanceField then CDF.fontRenderer else SDF.fontRenderer
-        letterScale = 72
-    atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
 
     do
+      -- text
+      Right font <- loadFontFile "fonts/Orbitron-Bold.ttf"
+      let fontRenderer = if useCompositeDistanceField then CDF.fontRenderer else SDF.fontRenderer
+          letterScale = 72
+      atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
       textMesh <- buildTextMesh atlas textStyle "Loading..."
       textBuffer <- compileMesh textMesh
       textObject <- addMesh loadingRenderer "textMesh" textBuffer []
@@ -326,6 +326,11 @@ main' wires = do
     renderer <- compileRenderer $ ScreenOut frameImage''
     initUtility renderer
 
+    -- text
+    Right font <- loadFontFile "fonts/Zebulon.ttf"
+    let fontRenderer = if useCompositeDistanceField then CDF.fontRenderer else SDF.fontRenderer
+        letterScale = 72
+    atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
     textMesh <- buildTextMesh atlas textStyle "Hello, gorgeous world!"
 
     textBuffer <- compileMesh textMesh
@@ -429,6 +434,7 @@ main' wires = do
     smp <- sampleFromFile "music/Take_Them.ogg" 1
     soundPlay smp 1 1 0 1
 
+    resetTime
     loop
     finishAudio
 
