@@ -27,6 +27,11 @@ import System.Random
     switch between 2 scenes
     create 2d texture with diagrams-rasterific
     modulate an effect parameter with a time varying function
+    loading screen
+    text stripes using lafonten
+    distorted glass effect
+    shadow mapping
+    camera support it should run on a cuve calculated on CPU
 -}
 
 points :: Mesh
