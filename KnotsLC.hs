@@ -31,9 +31,12 @@ import qualified LambdaCube.GL as LC
 
 ---------------------
 
-wires :: IO (Wire ExpV1)
-wires = transWire $ WHorizontal
-    [ Wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
+wires :: IO (Wire Int ExpV1)
+wires = flip evalStateT 0 $ transWire $ WHorizontal ()
+    [ WVertical ()
+        [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
+        , wire1D 200 $ mulSV3 1.1 . unKnot
+        ]
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
@@ -45,14 +48,21 @@ wires = transWire $ WHorizontal
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
 
---    wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
---    wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
 
-    , Wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
+    , WVertical ()
+        [ setDuration 3 $ WHorizontal ()
+            [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
+            , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
+                                (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
+            ]
+        , WHorizontal ()
+            [ wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
+            , wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
+            ]
+        ]
+
 --    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
 --    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
-    , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
-                                (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
 
 --    wire2DNorm True 2 2 $ planeXY
 
@@ -78,15 +88,24 @@ wires = transWire $ WHorizontal
 
 tt = 300
 
+setDuration d (WHorizontal i ws) = WHorizontal i $ [w { wDuration = Just d } | w <- ws]
+
 ---------------------
 
 type ExpV1 = LC.Exp V Float
 type ExpV3 = V3 ExpV1
 
-data Wire e
-    = Wire1D Int (e -> V3 e)
+data Wire i e
+    = Wire1D
+        { wInfo :: i
+        , wDuration  :: Maybe Float
+        , wXResolution :: Int
+        , wVertex1   :: e -> V3 e
+        }
     | Wire2D
-        { wTwosided  :: Bool
+        { wInfo :: i
+        , wDuration  :: Maybe Float
+        , wTwosided  :: Bool
         , wSimpleColor  :: Bool
         , wXResolution :: Int
         , wYResolution :: Int
@@ -95,24 +114,44 @@ data Wire e
         , wColor     :: Maybe (V2 e -> V3 e)
         , wAlpha     :: Maybe (V2 e -> e)
         }
-    | WHorizontal [Wire e]
+    | WHorizontal
+        { wInfo :: i
+        , wWires :: [Wire i e]
+        }
+    | WVertical
+        { wInfo :: i
+        , wWires :: [Wire i e]
+        }
     -- sprite
     -- color
     -- normal
 
-wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire Exp
-wire2DNorm t i j v = Wire2D t False i j v (Just $ normalPatch v) Nothing Nothing
+wire1D = Wire1D () Nothing
 
-wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire Exp
-wire2DNormAlpha t i j v c a = Wire2D t False i j v (Just $ normalPatch v) c a
+wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire () Exp
+wire2DNorm t i j v = Wire2D () Nothing t False i j v (Just $ normalPatch v) Nothing Nothing
 
-transWire :: Wire Exp -> IO (Wire ExpV1)
-transWire (Wire1D i f) = Wire1D <$> pure i <*> transFun "t" f
-transWire (Wire2D b sc i j v n c a) = Wire2D <$> pure b <*> pure sc <*> pure i <*> pure j <*> transFun2 "t" "s" v <*> traverse (transFun2 "t" "s") n <*> traverse (transFun2 "t" "s") c <*> (fmap (fmap runIdentity) <$> traverse (transFun2 "t" "s") (fmap Identity <$> a))
-transWire (WHorizontal ws) = WHorizontal <$> traverse transWire ws
+wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire () Exp
+wire2DNormAlpha t i j v c a = Wire2D () Nothing t False i j v (Just $ normalPatch v) c a
+
+transWire :: Wire () Exp -> StateT Int IO (Wire Int ExpV1)
+transWire (Wire1D info d i f) = newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> lift (transFun "t" f)
+transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun2 "t" "s" v) <*> traverse (lift . transFun2 "t" "s") n <*> traverse (lift . transFun2 "t" "s") c <*> (traverse) (lift . transFun2_ "t" "s") a
+transWire (WHorizontal info ws) = newid >>= \id -> WHorizontal <$> pure id <*> traverse transWire ws
+transWire (WVertical info ws) = newid >>= \id -> WVertical <$> pure id <*> traverse transWire ws
+
+newid = do
+    st <- get
+    put $ st + 1
+    return st
+
+-- 
 
 transFun :: Traversable f => String -> (Exp -> f Exp) -> IO (ExpV1 -> f ExpV1)
 transFun s f = fmap (\e t -> fmap ($ M.singleton s t) e) . traverse transExp $ f $ Var s
+
+transFun2_ :: String -> String -> (V2 Exp -> Exp) -> IO (V2 ExpV1 -> ExpV1)
+transFun2_ s1 s2 = fmap (fmap runIdentity) . transFun2 s1 s2 . fmap Identity
 
 transFun2 :: Traversable f => String -> String -> (V2 Exp -> f Exp) -> IO (V2 ExpV1 -> f ExpV1)
 transFun2 s1 s2 f = fmap (\e (V2 t1 t2) -> fmap ($ M.fromList [(s1,t1), (s2,t2)]) e) . traverse transExp $ f $ V2 (Var s1) (Var s2)

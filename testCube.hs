@@ -8,12 +8,17 @@
 import System.Environment
 import "GLFW-b" Graphics.UI.GLFW as GLFW
 import Control.Monad
+import Control.Arrow
+import Control.Applicative hiding (Const)
 import Data.Monoid
 import Data.Vect
+import Data.Function
+import qualified Data.Traversable as Trav
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
 import Control.Concurrent
+import Data.Time.Clock
 
 import Sound.ProteaAudio
 
@@ -122,7 +127,7 @@ textRender = renderText
         step = smoothstep' (floatF 0.5 @- outlineWidth) (floatF 0.5 @+ outlineWidth)
         outlineWidth = Uni (IFloat "outlineWidth") :: Exp F Float
 
-texturing1D :: Wire (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing1D :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
@@ -145,9 +150,9 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
       where
         v4 :: Exp V V4F
         v4 = case wire of
-            Wire1D _ f -> modelViewProj @*. (pack' $ V4 fx fy fz (Const 1))
+            Wire1D {..} -> modelViewProj @*. (pack' $ V4 fx fy fz (Const 1))
               where
-                Knot.V3 fx fy fz = f x
+                Knot.V3 fx fy fz = wVertex1 x
 
         V2 x y = unpack' uv
 
@@ -162,7 +167,7 @@ data VertFrag where
             -> (Exp F a -> FragmentOut (Depth Float :+: Color V4F :+: ZZ))
             -> VertFrag
 
-texturing2D :: Wire (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing2D :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing2D wire@(Wire2D {..})
     = texturing2D_ wire vertFrag
   where
@@ -250,7 +255,7 @@ texturing2D wire@(Wire2D {..})
 
 
 
-texturing2D_ :: Wire (Exp V Float) -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing2D_ :: Wire Int (Exp V Float) -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing2D_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
@@ -319,7 +324,12 @@ main = main' =<< wires
 textStyle = defaultTextStyle { textLetterSpacing = 0.0, textLineHeight = 1.25 }
 fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
 
-main' :: Wire (Exp V Float) -> IO ()
+streamName :: Int -> BS.ByteString
+streamName = ("stream" <>) . BS.pack . show
+
+type Time = UTCTime
+
+main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
     initialize
     openWindow defaultDisplayOptions
@@ -335,7 +345,7 @@ main' wires = do
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
         frameImage' = case wires of
-            WHorizontal ws -> PrjFrameBuffer "" tix0 $ foldl addWire emptyFB $ zip (map (("stream" <>) . BS.pack . show) [0..]) ws
+            WHorizontal {..} -> PrjFrameBuffer "" tix0 $ foldl addWire emptyFB wWires
 
         frameImage :: Exp Obj (Image 1 V4F)
         frameImage = renderScreen $ (FragmentOut.(:.ZT).fxVignette vignette frameImage')
@@ -345,9 +355,9 @@ main' wires = do
                           , scanlinesLow = Const $ V4 0.45 0.5 0.5 1
                           }
 
---        addWire :: -> (String, 
-        addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
-        addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
+        addWire fb wire@(Wire1D {..}) = texturing1D wire fb (Fetch (streamName wInfo) Triangles (IV2F "position"))
+        addWire fb wire@(Wire2D {..}) = texturing2D wire fb (Fetch (streamName wInfo) Triangles (IV2F "position"))
+        addWire fb w = foldl addWire fb $ wWires w
 
         frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex $ PrjFrameBuffer "" tix0 $ distortFX frameImage'
 
@@ -470,18 +480,49 @@ main' wires = do
     setWindowSize 1024 768
     texture =<< compileTexture2DRGBAF True False imgPattern
 
-    case wires of
-      WHorizontal ws -> do
-        forM_ (zip [0..] ws) $ \(n, w) -> do
-            gpuCube <- compileMesh $ case w of
-                Wire1D i _ -> line i
-                Wire2D { wXResolution = i, wYResolution = j } -> grid i j
-            addMesh renderer ("stream" <> BS.pack (show n)) gpuCube []
+    timenow <- getCurrentTime
+    print $ "time " ++ show timenow
+
+    let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Maybe Time, Either Object Object)])
+        addStreams t c = case c of
+            WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
+            WVertical{..} -> (id *** foldr merge []) <$> acc addStreams t wWires
+            w -> do
+                gpuCube <- compileMesh $ case w of
+                    Wire1D {..} -> line wXResolution
+                    Wire2D { wXResolution = i, wYResolution = j } -> grid i j
+                obj <- addMesh renderer (streamName $ wInfo w) gpuCube []
+
+                when (maybe True (> timenow) t) $
+                    enableObject obj False
+                let t' = liftA2 addUTCTime (realToFrac <$> wDuration w) t
+                return (t', [(t, Left obj), (t', Right obj)])
+
+        merge = mergeBy (compare' `on` fst)
+        compare' (Just a) (Just b) = compare a b
+        compare' Nothing Nothing = EQ
+        compare' Nothing _ = GT
+        compare' _ _ = LT
+
+        acc f x [] = return (x, [])
+        acc f x (y:ys) = do
+            (x', y') <- f x y
+            (x'', ys') <- acc f x' ys
+            return (x'', y':ys')
+
+    (_end, schedule) <- addStreams (Just timenow) wires
 
     let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
-        loop = do
+        loop schedule = do
             t <- getTime
+--            print t
+            t' <- getCurrentTime
+            let (old, schedule') = span (\(x, _) -> compare' x (Just t') == LT) schedule
+            forM_ old $ \(i, obj) -> do
+                print t
+                print $ either (const $ "add" ++ show i) (const $ "del" ++ show i) obj
+                either (flip enableObject True) (flip enableObject False) obj
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
             mvp $! mat4ToM44F $! mm .*. cm .*. pm
@@ -498,7 +539,7 @@ main' wires = do
             swapBuffers
 
             k <- keyIsPressed KeyEsc
-            unless k $ loop
+            unless k $ loop schedule'
 
     initAudio 2 44100 1024
     smp <- sampleFromFile "music/Take_Them.ogg" 1
@@ -520,7 +561,7 @@ main' wires = do
     resetTime
     soundPlay smp 1 1 0 1
 
-    loop
+    loop schedule
     soundStop smp
 
     dispose renderer
@@ -531,3 +572,13 @@ main' wires = do
           if n == 0 then return () else waitAudio
     waitAudio
     finishAudio
+
+mergeBy :: (a -> a -> Ordering) -> [a] -> [a] -> [a]
+mergeBy f [] xs = xs
+mergeBy f xs [] = xs
+mergeBy f (x:xs) (y:ys) = case f x y of
+    LT -> x: mergeBy f xs (y:ys)
+    _  -> y: mergeBy f (x:xs) ys
+
+
+
