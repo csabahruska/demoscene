@@ -185,7 +185,7 @@ texturing2D wire@(Wire2D {..})
                 V2 x y = unpack' uv
 
 --            fragmentShader :: Exp F (V2F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-            fragmentShader (untup5 -> (uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ clr @* dot' n dlight :. ZT
+            fragmentShader (untup5 -> (uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ (if wSimpleColor then clr else clr @* dot' n dlight) :. ZT
               where
                 tex = {-imgToTex textImg -} TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
                 clr = case unpack' col of (V3 r g b) -> pack' $ V4 r g b alpha -- color tex uv
