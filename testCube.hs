@@ -257,7 +257,7 @@ texturing2D_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumula
 
     (depthWrite, blending) = case wire of
         Wire2D { wAlpha = Nothing } -> (True, NoBlending)
-        _ -> (True, blend)
+        _ -> (False, blend)
 
 --    fragmentStream :: Exp Obj (FragmentStream 1 V2F)
     fragmentStream = Rasterize rasterCtx primitiveStream
