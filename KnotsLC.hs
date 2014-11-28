@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 module KnotsLC where
 
 import Data.Maybe
@@ -33,7 +34,7 @@ import LambdaCube.GL
 wires :: IO [Wire]
 wires = execWriterT $ do
     wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
-    wire2DNorm False 50 20 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
+    wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     wire2DNorm False 200 20 $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
@@ -44,8 +45,15 @@ wires = execWriterT $ do
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
 
-    wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
-    wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
+--    wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
+--    wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
+
+    wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
+--    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
+--    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
+    wire2DNormAlpha True 2000 10 (env3 . magnifyZ 60 . rotateXY time . translateY (-0.5) . planeZY)
+                                (Just $ const $ K.V3 1 1 0) Nothing
+
 --    wire2DNorm True 2 2 $ planeXY
 
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
@@ -58,24 +66,37 @@ wires = execWriterT $ do
 -}
     wire2DNorm False 500 10 $ tubularPatch (mulSV3 3 . lissajousKnot (K.V3 3 4 7) (K.V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot)
 
-    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (sin . normV2)
+--    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (Just $ sin . normV2)
   where
     env = magnify 2 . tubularNeighbourhood (helix 0.9 (sin time + 1.5)) . tubularNeighbourhood (helix 0.3 0.5 . (+ 0.5 * sin (2 * time))) . tubularNeighbourhood (helix 0.1 (0.5/3) . (+ 0.03 * sin (10 * time)))
 
     env2 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> K.V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)
 
+    env3 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> K.V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . logarithmicSpiral 0.1 0.04)
+
 tt = 300
 
 ---------------------
 
+type ExpV1 = Exp V Float
+type ExpV3 = (ExpV1, ExpV1, ExpV1)
+
+type OnPlane a = ExpV1 -> ExpV1 -> a
+
 data Wire
-    = Wire1D Int (Exp V Float -> ExpV3)
-    | Wire2D Bool Int Int (Exp V Float -> Exp V Float -> (ExpV3, Maybe ExpV3)) (Maybe (Exp V Float -> Exp V Float -> Exp V Float))
+    = Wire1D Int (ExpV1 -> ExpV3)
+    | Wire2D
+        { wTwosided  :: Bool
+        , wXResolution :: Int
+        , wYResolution :: Int
+        , wVertex    :: OnPlane ExpV3
+        , wNormal    :: Maybe (OnPlane ExpV3)
+        , wColor     :: Maybe (OnPlane ExpV3)
+        , wAlpha     :: Maybe (OnPlane ExpV1)
+        }
     -- sprite
     -- color
     -- normal
-
-type ExpV3 = (Exp V Float, Exp V Float, Exp V Float)
 
 wire1D :: Int -> Curve -> WriterT [Wire] IO ()
 wire1D i ff = do
@@ -87,18 +108,27 @@ wire2DNorm twosided i j ff = do
     K.V3 fx fy fz <- lift $ traverse transExp $ ff (K.V2 "t" "s")
     K.V3 nx ny nz <- lift $ traverse transExp $ (normalPatch ff) (K.V2 "t" "s")
     tell [Wire2D twosided i j 
-            (\t s -> let env = M.fromList [("t",t),("s",s)] in ((fx env, fy env, fz env), Just (nx env, ny env, nz env)))
+            (\t s -> let env = M.fromList [("t",t),("s",s)] in (fx env, fy env, fz env))
+            (Just $ \t s -> let env = M.fromList [("t",t),("s",s)] in (nx env, ny env, nz env))
+            Nothing
             Nothing
          ]
 
-wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> (forall s . Timed s => K.V2 s -> s) -> WriterT [Wire] IO ()
-wire2DNormAlpha twosided i j ff alpha = do
+wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (K.V2 K.Exp -> K.V3 K.Exp) -> Maybe (K.V2 K.Exp -> K.Exp) -> WriterT [Wire] IO ()
+wire2DNormAlpha twosided i j ff color alpha = do
     K.V3 fx fy fz <- lift $ traverse transExp $ ff (K.V2 "t" "s")
     K.V3 nx ny nz <- lift $ traverse transExp $ (normalPatch ff) (K.V2 "t" "s")
-    alpha' <- lift $ transExp $ alpha $ K.V2 "t" "s"
-    tell [Wire2D twosided i j 
-            (\t s -> let env = M.fromList [("t",t),("s",s)] in ((fx env, fy env, fz env), Just (nx env, ny env, nz env)))
-            (Just $ \t s -> let env = M.fromList [("t",t),("s",s)] in alpha' env)
+    alpha' <- sequenceA $ fmap (lift . transExp . ($ K.V2 "t" "s")) alpha
+    color' <- sequenceA $ fmap (lift . traverse transExp . ($ K.V2 "t" "s")) color
+    tell [Wire2D 
+            { wTwosided = twosided
+            , wXResolution = i
+            , wYResolution = j 
+            , wVertex = \t s -> let env = M.fromList [("t",t),("s",s)] in (fx env, fy env, fz env)
+            , wNormal = Just $ \t s -> let env = M.fromList [("t",t),("s",s)] in (nx env, ny env, nz env)
+            , wColor = fmap (\(K.V3 fr fg fb) t s -> let env = M.fromList [("t",t),("s",s)] in (fr env, fg env, fb env)) color'
+            , wAlpha = fmap (\f t s -> let env = M.fromList [("t",t),("s",s)] in f env) alpha'
+            }
          ]
 
 

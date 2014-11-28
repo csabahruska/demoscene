@@ -99,6 +99,7 @@ instance (Timed a, Reifies s Tape) => Timed (Reverse s a) where
 
 ------------------------------- Space transformations
 
+type SpaceTrS s = V3 s -> V3 s    -- moving frame
 type SpaceTr = forall s . Timed s => V3 s -> V3 s    -- moving frame
 
 translateX :: RealFloat t => t -> SpaceTr
@@ -121,6 +122,11 @@ magnifyZ t (V3 x y z) = V3 x y (realToFrac t * z)
 
 magnify :: Float -> SpaceTr
 magnify = mulSV3 . realToFrac
+
+rotateXY :: Floating s => s -> SpaceTrS s
+rotateXY t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
+  where
+    (s, c) = sinCos t
 
 rotateYZ :: Float -> SpaceTr
 rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)
@@ -193,6 +199,14 @@ archimedeanSpiralLength radius t = 0.5 * radius * (t * sqrt (1 + sqr t) + asinh 
 -- slightly normalized
 archimedeanSpiralN :: Timed a => a -> a -> CurveS a
 archimedeanSpiralN radius phase = archimedeanSpiral radius phase . (+(-1)) . sqrt . (+1) . (/radius)
+
+logarithmicSpiral :: Timed a => a -> a -> CurveS a
+logarithmicSpiral a b = \t -> invPolarXY' $ V3 (a * exp (b * t)) t 0
+
+logarithmicSpiralLength :: Floating a => a -> a -> a -> a
+logarithmicSpiralLength a b = \t -> a / b * sqrt (1 + sqr b) * exp (b * t)
+
+
 
 -- TODO: generalize to (Curve -> Curve)?
 torusKnot :: Integer -> Integer -> Curve
