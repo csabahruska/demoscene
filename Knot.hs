@@ -85,6 +85,48 @@ instance Timed a => Timed (Forward a) where
 instance (Timed a, Reifies s Tape) => Timed (Reverse s a) where
     time = Reverse.Lift time
 
+------------------------------- Space transformations
+
+type SpaceTr = forall s . Timed s => V3 s -> V3 s    -- moving frame
+
+sinCos phi = (sin phi, cos phi)
+
+projectionZ :: SpaceTr
+projectionZ (V3 x y z) = V3 (z * x) (z * y) z
+
+twistZ :: SpaceTr
+twistZ (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
+  where
+    (s, c) = sinCos z
+
+invPolarXY :: SpaceTr
+invPolarXY (V3 x y z) = V3 (x * c) (x * s) z
+  where
+    (s, c) = sinCos y
+
+translateX :: RealFloat t => t -> SpaceTr
+translateX t (V3 x y z) = V3 (realToFrac t + x) y z
+
+translateY :: Float -> SpaceTr
+translateY t (V3 x y z) = V3 x (realToFrac t + y) z
+
+translateZ :: Float -> SpaceTr
+translateZ t (V3 x y z) = V3 x y (realToFrac t + z)
+
+rotateYZ :: Float -> SpaceTr
+rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)
+  where
+    (s, c) = sinCos $ realToFrac t
+
+magnifyX :: Float -> SpaceTr
+magnifyX t (V3 x y z) = V3 (realToFrac t * x) y z
+
+magnifyZ :: Float -> SpaceTr
+magnifyZ t (V3 x y z) = V3 x y (realToFrac t * z)
+
+magnify :: Float -> SpaceTr
+magnify = mulSV3 . realToFrac
+
 ------------------------------- Curves and patches
 
 type Curve = forall s . Timed s => s -> V3 s         -- [0,1] -> R3
@@ -131,14 +173,37 @@ tubularPatch path = \mask (V2 t u) -> path t + mulMV3 (frame t) (mask u)
   where
     frame = frenetFrame path
 
+tubularNeighbourhood :: Curve -> SpaceTr
+tubularNeighbourhood c = \(V3 x y z) -> c z + mulMV3 (frenetFrame c z) (V3 x y 0)
+
 -- compute the normal vector bundle of a patch
 normalPatch :: Patch -> Patch
 normalPatch patch v = crossV3 du dt
   where
     V2 du dt = transpose32 . jacobian patch $ v
 
-
 ------ predefined curves and patches
+
+planeXY :: Patch
+planeXY (V2 x y) = V3 x y 0
+
+planeYZ :: Patch
+planeYZ (V2 x y) = V3 0 x y
+
+planeZY :: Patch
+planeZY (V2 x y) = V3 0 y x
+
+planeZX :: Patch
+planeZX (V2 x y) = V3 y 0 x
+
+lineX :: Curve
+lineX x = V3 x 0 0
+
+lineY :: Curve
+lineY x = V3 0 x 0
+
+lineZ :: Curve
+lineZ x = V3 0 0 x
 
 unKnot :: Curve
 unKnot t = V3 (cos w) (sin w) 0

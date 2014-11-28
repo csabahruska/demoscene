@@ -28,9 +28,6 @@ import Data.Reify.Graph
 
 import LambdaCube.GL
 
---f :: (a -> (b, c, d)) -> (a -> b, a -> c, a -> d)
---f g = (fst3 . g, snd3 . g, thd3 . g)
-
 type ExpV3 = (Exp V Float, Exp V Float, Exp V Float)
 
 data Wire
@@ -52,6 +49,7 @@ transExp x = (\(Graph rx x) env -> transExp_ x env (IM.map Left $ IM.fromList rx
         -> ST
         -> (Exp V Float -> ST -> Exp V Float)
         -> Exp V Float
+
     transExp_ x env st cont_ = case st IM.! x of
         Right ex -> cont_ ex st
         Left e -> flip (runCont $ traverse (\i -> cont $ \co st -> transExp_ i env st co) e) st $ \xx st ->
@@ -80,6 +78,13 @@ wires = execWriterT $ do
     wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
     wire2DNorm 50 50 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     wire2DNorm 200 80 $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)
+    wire2DNorm 50 50 $ magnifyZ 100 . projectionZ . magnifyZ 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . planeZY
+{-
+    wire2DNorm 50 50 $ 
+        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . rotateYZ (- pi / 4) . magnify (8 * pi) . translateX (-2) . magnifyZ 0.1 .
+        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . 
+        planeZY
+-}
   where
     wire1D :: Int -> Curve -> WriterT [Wire] IO ()
     wire1D i ff = do
