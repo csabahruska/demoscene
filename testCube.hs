@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 
+import System.Environment
 import "GLFW-b" Graphics.UI.GLFW as GLFW
 import Control.Monad
 import Data.Monoid
@@ -378,6 +379,12 @@ main' wires = do
       swapBuffers
 
     -- main scene
+    args <- getArgs
+    let fname = case args of
+          [] -> "textures/rusty_metal.jpg"
+          (n:_) -> n
+    Right imgPattern <- loadImage fname
+
     renderer <- compileRenderer $ ScreenOut frameImage''
     initUtility renderer
 
@@ -456,8 +463,7 @@ main' wires = do
         setWindowSize   = setScreenSize renderer
 
     setWindowSize 1024 768
-    Right img <- loadImage "textures/rusty_metal.jpg"
-    texture =<< compileTexture2DRGBAF True False img
+    texture =<< compileTexture2DRGBAF True False imgPattern
 
     forM_ (zip [0..] wires) $ \(n, w) -> do
         gpuCube <- compileMesh $ case w of
