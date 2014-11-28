@@ -102,26 +102,26 @@ instance (Timed a, Reifies s Tape) => Timed (Reverse s a) where
 type SpaceTrS s = V3 s -> V3 s    -- moving frame
 type SpaceTr = forall s . Timed s => V3 s -> V3 s    -- moving frame
 
-translateX :: RealFloat t => t -> SpaceTr
-translateX t (V3 x y z) = V3 (realToFrac t + x) y z
+translateX :: Floating t => t -> SpaceTrS t
+translateX t (V3 x y z) = V3 (t + x) y z
 
-translateY :: Float -> SpaceTr
-translateY t (V3 x y z) = V3 x (realToFrac t + y) z
+translateY :: Floating t => t -> SpaceTrS t
+translateY t (V3 x y z) = V3 x (t + y) z
 
-translateZ :: Float -> SpaceTr
-translateZ t (V3 x y z) = V3 x y (realToFrac t + z)
+translateZ :: Floating t => t -> SpaceTrS t
+translateZ t (V3 x y z) = V3 x y (t + z)
 
-magnifyX :: Float -> SpaceTr
-magnifyX t (V3 x y z) = V3 (realToFrac t * x) y z
+magnifyX :: Floating t => t -> SpaceTrS t
+magnifyX t (V3 x y z) = V3 (t * x) y z
 
-magnifyY :: Float -> SpaceTr
-magnifyY t (V3 x y z) = V3 x (realToFrac t * y) z
+magnifyY :: Floating t => t -> SpaceTrS t
+magnifyY t (V3 x y z) = V3 x (t * y) z
 
-magnifyZ :: Float -> SpaceTr
-magnifyZ t (V3 x y z) = V3 x y (realToFrac t * z)
+magnifyZ :: Floating t => t -> SpaceTrS t
+magnifyZ t (V3 x y z) = V3 x y (t * z)
 
-magnify :: Float -> SpaceTr
-magnify = mulSV3 . realToFrac
+magnify :: Floating t => t -> SpaceTrS t
+magnify = mulSV3
 
 rotateXY :: Floating s => s -> SpaceTrS s
 rotateXY t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
@@ -133,18 +133,18 @@ rotateXZ t (V3 x y z) = V3 (c * x - s * z) y (s * x + c * z)
   where
     (s, c) = sinCos t
 
-rotateYZ :: Float -> SpaceTr
+rotateYZ :: Floating t => t -> SpaceTrS t
 rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)
   where
-    (s, c) = sinCos $ realToFrac t
+    (s, c) = sinCos $ t
 
 projectionZ :: SpaceTr
 projectionZ (V3 x y z) = V3 (z * x) (z * y) z
 
-twistZ :: Float -> SpaceTr
+twistZ :: Floating t => t -> SpaceTrS t
 twistZ t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
   where
-    (s, c) = sinCos $ (2 * pi * realToFrac t) * z
+    (s, c) = sinCos $ (2 * pi * t) * z
 
 invPolarXY :: SpaceTr
 invPolarXY (V3 x y z) = V3 (x * c) (x * s) z
@@ -258,6 +258,7 @@ frenetFrame' c = liftA2 cross (unitV3 . c'') c'
 
 ------------------------------- Patches
 
+type PatchS s = V2 s -> V3 s      -- [0,1] x [0,1] -> R3
 type Patch = forall s . Timed s => V2 s -> V3 s      -- [0,1] x [0,1] -> R3
 
 planeXY :: Patch
@@ -272,7 +273,7 @@ planeZY (V2 x y) = V3 0 y x
 planeZX :: Patch
 planeZX (V2 x y) = V3 y 0 x
 
-cylinderZ :: Float -> Patch
+cylinderZ :: Timed s => s -> PatchS s
 cylinderZ dia = invPolarXY . translateX dia . planeZY
 
 {-
