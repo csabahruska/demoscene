@@ -31,11 +31,11 @@ import qualified LambdaCube.GL as LC
 
 ---------------------
 
-wires :: IO [Wire ExpV1]
-wires = execWriterT $ do
-    tellWire $ Wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
-    tellWire $ wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
-    tellWire $ (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
+wires :: IO (Wire ExpV1)
+wires = transWire $ WHorizontal
+    [ Wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
+    , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
+    , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
 --    wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
@@ -48,10 +48,10 @@ wires = execWriterT $ do
 --    wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
 --    wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
 
-    tellWire $ Wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
+    , Wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
 --    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
 --    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
-    tellWire $ wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
+    , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
                                 (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
 
 --    wire2DNorm True 2 2 $ planeXY
@@ -64,10 +64,11 @@ wires = execWriterT $ do
         magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) .
         planeZY
 -}
-    tellWire $ wire2DNormAlpha False 500 10 (tubularPatch (mulSV3 3 . lissajousKnot (V3 3 4 7) (V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot))
+    , wire2DNormAlpha False 500 10 (tubularPatch (mulSV3 3 . lissajousKnot (V3 3 4 7) (V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot))
                 (Just $ const $ V3 1 1 1) (Just $ const $ 0.5)
 
 --    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (Just $ sin . normV2)
+    ]
   where
     env = magnify 2 . tubularNeighbourhood (helix 0.9 (sin time + 1.5)) . tubularNeighbourhood (helix 0.3 0.5 . (+ 0.5 * sin (2 * time))) . tubularNeighbourhood (helix 0.1 (0.5/3) . (+ 0.03 * sin (10 * time)))
 
@@ -94,6 +95,7 @@ data Wire e
         , wColor     :: Maybe (V2 e -> V3 e)
         , wAlpha     :: Maybe (V2 e -> e)
         }
+    | WHorizontal [Wire e]
     -- sprite
     -- color
     -- normal
@@ -104,12 +106,10 @@ wire2DNorm t i j v = Wire2D t False i j v (Just $ normalPatch v) Nothing Nothing
 wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire Exp
 wire2DNormAlpha t i j v c a = Wire2D t False i j v (Just $ normalPatch v) c a
 
-tellWire :: Wire Exp -> WriterT [Wire ExpV1] IO ()
-tellWire = tell . (:[]) <=< lift . transWire
-
 transWire :: Wire Exp -> IO (Wire ExpV1)
 transWire (Wire1D i f) = Wire1D <$> pure i <*> transFun "t" f
 transWire (Wire2D b sc i j v n c a) = Wire2D <$> pure b <*> pure sc <*> pure i <*> pure j <*> transFun2 "t" "s" v <*> traverse (transFun2 "t" "s") n <*> traverse (transFun2 "t" "s") c <*> (fmap (fmap runIdentity) <$> traverse (transFun2 "t" "s") (fmap Identity <$> a))
+transWire (WHorizontal ws) = WHorizontal <$> traverse transWire ws
 
 transFun :: Traversable f => String -> (Exp -> f Exp) -> IO (ExpV1 -> f ExpV1)
 transFun s f = fmap (\e t -> fmap ($ M.singleton s t) e) . traverse transExp $ f $ Var s

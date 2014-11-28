@@ -319,7 +319,7 @@ main = main' =<< wires
 textStyle = defaultTextStyle { textLetterSpacing = 0.0, textLineHeight = 1.25 }
 fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
 
-main' :: [Wire (Exp V Float)] -> IO ()
+main' :: Wire (Exp V Float) -> IO ()
 main' wires = do
     initialize
     openWindow defaultDisplayOptions
@@ -334,7 +334,8 @@ main' wires = do
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
-        frameImage' = PrjFrameBuffer "" tix0 $ foldl addWire emptyFB $ zip (map (("stream" <>) . BS.pack . show) [0..]) wires
+        frameImage' = case wires of
+            WHorizontal ws -> PrjFrameBuffer "" tix0 $ foldl addWire emptyFB $ zip (map (("stream" <>) . BS.pack . show) [0..]) ws
 
         frameImage :: Exp Obj (Image 1 V4F)
         frameImage = renderScreen $ (FragmentOut.(:.ZT).fxVignette vignette frameImage')
@@ -469,11 +470,13 @@ main' wires = do
     setWindowSize 1024 768
     texture =<< compileTexture2DRGBAF True False imgPattern
 
-    forM_ (zip [0..] wires) $ \(n, w) -> do
-        gpuCube <- compileMesh $ case w of
-            Wire1D i _ -> line i
-            Wire2D { wXResolution = i, wYResolution = j } -> grid i j
-        addMesh renderer ("stream" <> BS.pack (show n)) gpuCube []
+    case wires of
+      WHorizontal ws -> do
+        forM_ (zip [0..] ws) $ \(n, w) -> do
+            gpuCube <- compileMesh $ case w of
+                Wire1D i _ -> line i
+                Wire2D { wXResolution = i, wYResolution = j } -> grid i j
+            addMesh renderer ("stream" <> BS.pack (show n)) gpuCube []
 
     let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
