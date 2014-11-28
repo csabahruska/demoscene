@@ -60,14 +60,18 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
 texturing2D :: Wire -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
-    rasterCtx :: RasterContext Triangle
-    rasterCtx = TriangleCtx {-CullNone-}(CullFront CW) (PolygonFill {-PolygonLine 1-}) NoOffset LastVertex
+    rasterCtx :: Wire -> RasterContext Triangle
+    rasterCtx (Wire2D twosided _ _ _ _) = TriangleCtx (if twosided then CullNone else CullFront CW) (PolygonFill {-PolygonLine 1-}) NoOffset LastVertex
 
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
-    fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
+    fragmentCtx = AccumulationContext Nothing $ DepthOp Less depthWrite :.ColorOp blending (one' :: V4B):.ZT
+
+    (depthWrite, blending) = case wire of
+        Wire2D _ _ _ _ Nothing -> (True, NoBlending)
+        Wire2D _ _ _ _ (Just _) -> (True, blend)
 
 --    fragmentStream :: Exp Obj (FragmentStream 1 V2F)
-    fragmentStream = Rasterize rasterCtx primitiveStream
+    fragmentStream = Rasterize (rasterCtx wire) primitiveStream
 
 --    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V2F)
     primitiveStream = Transform vertexShader objs
@@ -84,15 +88,18 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
     prj1 a = drop4 $ modelView @*. snoc a 1
     prj0 a = drop4 $ modelView @*. snoc a 0
 
-    vertexShader :: Exp V (V2F) -> VertexOut () (V2F, V3F, V4F)
-    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :.Smooth pos :. ZT)
+    vertexShader :: Exp V (V2F) -> VertexOut () (V2F, V3F, V4F, Float)
+    vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :. Smooth pos :. Flat alpha :. ZT)
       where
 --        v4 :: Exp V V4F
-        (v4, ns, pos) = case wire of
-            Wire2D _ _ f -> (modelViewProj @*. ps, ns_, modelView @*. ps)
+        (v4, ns, pos, alpha) = case wire of
+            Wire2D _ _ _ f transp -> (modelViewProj @*. ps, ns_, modelView @*. ps, transparency)
               where
                 ps = pack' $ V4 fx fy fz (Const 1)
                 ((fx, fy, fz), normals) = f x y
+                transparency = case transp of
+                    Nothing -> Const 1
+                    Just trp -> trp x y
                 ns_ = case normals of
                     Nothing -> Const zero' --undefined
                     Just (nx, ny, nz) -> pack' $ V3 nx ny nz
@@ -100,7 +107,7 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
         V2 x y = unpack' uv
 
     --fragmentShader :: Exp F (V2F,V3F) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-    fragmentShader (untup3 -> (uv, ns, pos')) = FragmentOutRastDepth $ c :. ZT
+    fragmentShader (untup4 -> (uv, ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
       where
         tex = TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
         clr = color tex uv
@@ -114,7 +121,7 @@ texturing2D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
         color1 = v4FF $ V4 1 0 0 1
         n = normalize' ns
         c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
-        
+        c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
 
 
 v2v4 :: Exp s V2F -> Exp s V4F
@@ -180,7 +187,7 @@ main' wires = do
         addWire fb (name, wire@(Wire1D {})) = texturing1D wire fb (Fetch name Triangles (IV2F "position"))
         addWire fb (name, wire@(Wire2D {})) = texturing2D wire fb (Fetch name Triangles (IV2F "position"))
 
-    renderer <- compileRenderer $ ScreenOut frameImage
+    renderer <- compileRenderer $ ScreenOut frameImage'
     initUtility renderer
 
     let uniformMap      = uniformSetter renderer
@@ -198,7 +205,7 @@ main' wires = do
     forM_ (zip [0..] wires) $ \(n, w) -> do
         gpuCube <- compileMesh $ case w of
             Wire1D i _ -> line i
-            Wire2D i j _ -> grid i j
+            Wire2D _ i j _ _ -> grid i j
         addMesh renderer ("stream" <> BS.pack (show n)) gpuCube []
 
     let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))

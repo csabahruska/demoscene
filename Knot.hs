@@ -58,8 +58,17 @@ mulSV3 = fmap . (*)
 mulMV3 :: (Num s) => V3 (V3 s) -> V3 s -> V3 s
 mulMV3 m v = Prelude.sum $ toList $ liftA2 mulSV3 v m
 
+norm2V2 :: (Floating s) => V2 s -> s
+norm2V2 = Prelude.sum . toList . join (*)
+
+normV2 :: (Floating s) => V2 s -> s
+normV2 = sqrt . norm2V2
+
+norm2V3 :: (Floating s) => V3 s -> s
+norm2V3 = Prelude.sum . toList . join (*)
+
 normV3 :: (Floating s) => V3 s -> s
-normV3 = sqrt . Prelude.sum . toList . join (*)
+normV3 = sqrt . norm2V3
 
 unitV3 :: (Floating s) => V3 s -> V3 s
 unitV3 v = mulSV3 (1 / normV3 v) v
@@ -131,8 +140,13 @@ invPolarXY (V3 x y z) = V3 (x * c) (x * s) z
   where
     (s, c) = sinCos ((2*pi) * y)
 
+invPolarXY' :: SpaceTr
+invPolarXY' (V3 x y z) = V3 (x * c) (x * s) z
+  where
+    (s, c) = sinCos y
+
 tubularNeighbourhood :: Curve -> SpaceTr
-tubularNeighbourhood c = \(V3 x y z) -> c z + mulMV3 (frenetFrame c z) (V3 x y 0)
+tubularNeighbourhood c (V3 x y z) = c z + mulMV3 (frenetFrame' c z) (V3 x y 0)
 
 ------------------------------- Curves
 
@@ -153,16 +167,32 @@ unKnot t = V3 (cos w) (sin w) 0
   where
     w = 2 * pi * t
 
+-- normalized helix
 helix :: Timed a => a -> a -> CurveS a
-helix rad pitch = cu . (/ len)
+helix radius pitch = cu . (/ len)
   where
-    cu t = V3 (rad * c) (rad * s) (b * t)
-      where
-        (s, c) = sinCos t
+    cu t = invPolarXY' $ V3 radius t (b * t)
+
     b = pitch / (2*pi)
+    len = sqrt (radius ^ 2 + b ^ 2)
 
-    len = sqrt (rad ^ 2 + b ^ 2)
+-- turn of the helix
+helixTurn radius pitch = 1 / sqrt (sqr (2*pi*radius) + sqr pitch)
 
+sqr x = x * x
+
+-- height (z-length) of the helix
+helixHeight :: Floating a => a -> a -> a
+helixHeight radius pitch = 1 / sqrt (sqr (2*pi*radius/pitch) + 1)
+
+archimedeanSpiral :: Timed a => a -> a -> CurveS a
+archimedeanSpiral radius phase = \t -> invPolarXY' $ V3 (radius * t) (t + phase) 0
+
+archimedeanSpiralLength radius t = 0.5 * radius * (t * sqrt (1 + sqr t) + asinh t)
+
+-- slightly normalized
+archimedeanSpiralN :: Timed a => a -> a -> CurveS a
+archimedeanSpiralN radius phase = archimedeanSpiral radius phase . (+(-1)) . sqrt . (+1) . (/radius)
 
 -- TODO: generalize to (Curve -> Curve)?
 torusKnot :: Integer -> Integer -> Curve
@@ -200,6 +230,13 @@ frenetFrame c = liftA2 cross (unitV3 . c'') (unitV3 . c')
     c'' = normalCurve c'
     cross i k = V3 i (crossV3 k i) k
 
+frenetFrame' :: Curve -> Frame
+frenetFrame' c = liftA2 cross (unitV3 . c'') c'
+  where
+    c' = normalCurve c
+    c'' = normalCurve c'
+    cross i k = V3 (mulSV3 (normV3 k) i) (crossV3 k i) k
+
 ------------------------------- Patches
 
 type Patch = forall s . Timed s => V2 s -> V3 s      -- [0,1] x [0,1] -> R3
@@ -224,9 +261,7 @@ http://en.wikipedia.org/wiki/Tubular_neighborhood
 http://en.wikipedia.org/wiki/Vector_bundle
 -}
 tubularPatch :: Curve -> Curve -> Patch
-tubularPatch path = \mask (V2 t u) -> path t + mulMV3 (frame t) (mask u)
-  where
-    frame = frenetFrame path
+tubularPatch path mask (V2 t u) = path t + mulMV3 (frenetFrame path t) (mask u)
 
 -- compute the normal vector bundle of a patch
 normalPatch :: Patch -> Patch
