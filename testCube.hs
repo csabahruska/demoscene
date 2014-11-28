@@ -367,7 +367,7 @@ main' wires = do
           letterScale = atlasLetterScale (atlasOptions atlas)
           letterPadding = atlasLetterPadding (atlasOptions atlas)
           scale = 0.1
-          ofsX = -0.9
+          ofsX = -0.85
           ofsY = 0
       uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
 
