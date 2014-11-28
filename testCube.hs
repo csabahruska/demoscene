@@ -218,7 +218,7 @@ main' wires = do
             unless k $ loop
 
     initAudio 64 44100 1024
-    smp <- sampleFromFile "music/07_Take_Them.wav" 1
+    smp <- sampleFromFile "music/Take_Them.ogg" 1
     soundPlay smp 1 1 0 1
 
     loop
