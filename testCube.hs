@@ -448,7 +448,7 @@ main' wires = do
         , displayOptions_openGLProfile      = CoreProfile
         , displayOptions_numDepthBits       = 24
         }
-    setWindowTitle "Demo by Lambda"
+    setWindowTitle "Knots by Lambda"
 
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
