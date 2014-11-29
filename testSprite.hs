@@ -62,7 +62,7 @@ sprites = PrjFrameBuffer "" tix0 $ Accumulate fragCtx PassAll frag rast clear
     offset = Uni (IV2F "offset") :: Exp F V2F
     smp n uv = texture' (Sampler LinearFilter ClampToEdge $ TextureSlot n $ Texture2D (Float RGBA) n1) uv
     frag :: Exp F () -> FragmentOut (Color V4F :+: ZZ)
-    frag _ = FragmentOut $ (smp "explosion" $ (pointCoord' @* floatF 0.25 @+ offset)) :. ZT
+    frag _ = FragmentOut $ (smp "explosion" $ (pointCoord' {- @* floatF 0.25 @+ offset -})) :. ZT
 
 main :: IO ()
 main = do
@@ -136,13 +136,13 @@ scene setSize slotU objU windowSize mousePosition fblrPress = do
             return ()
     r <- effectful3 setupGFX windowSize time o
     return r
-
+{-
 vec4ToV4F :: Vec4 -> V4F
 vec4ToV4F (Vec4 x y z w) = V4 x y z w
 
 mat4ToM44F :: Mat4 -> M44F
 mat4ToM44F (Mat4 a b c d) = V4 (vec4ToV4F a) (vec4ToV4F b) (vec4ToV4F c) (vec4ToV4F d)
-
+-}
 readInput :: State
           -> ((Float, Float) -> IO a)
           -> ((Bool, Bool, Bool, Bool, Bool) -> IO c)
