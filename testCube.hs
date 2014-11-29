@@ -603,7 +603,10 @@ main' wires = do
               where
                 len' = realToFrac len
                 t' = liftA2 (+) (Just len') t
-                action time = print v >> volume v v
+                action time = do
+                    print v
+                    volume v v
+                    uniformFloat "brightness" uniformMap v
                   where v = realToFrac $ min 1 $ max 0 $ 1 - ((time - ti) / len')
             WCamera{..} -> return (t', [(ti, SetCam wCamera)])
               where
