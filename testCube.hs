@@ -525,8 +525,9 @@ main' wires = do
                 either (flip enableObject True) (flip enableObject False) obj
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
-            mvp $! mat4ToM44F $! mm .*. cm .*. pm
-            mv $! mat4ToM44F $! mm .*. cm
+                cam = cameraToMat4 $ curveToCameraPath (Knot.mulSV3 3 . Knot.unKnot) (0.05 * realToFrac t)
+            mvp $! mat4ToM44F $! cam .*. pm
+            mv $! mat4ToM44F $! cam
             proj $! mat4ToM44F $! pm
             time $ realToFrac t
             let s = sin t' * 0.5 + 0.5
@@ -548,8 +549,10 @@ main' wires = do
     soundPlay smp 1 1 0 1
 
     writeIORef timeRef =<< getCurrentTime
+
     loop schedule
     soundStop smp
+    soundStopAll
 
     dispose renderer
     closeWindow
@@ -567,6 +570,3 @@ mergeBy f xs [] = xs
 mergeBy f (x:xs) (y:ys) = case f x y of
     LT -> x: mergeBy f xs (y:ys)
     _  -> y: mergeBy f (x:xs) ys
-
-
-

@@ -25,12 +25,14 @@ import qualified Data.ByteString.Char8 as BS
 import Knot
 import AD
 import Data.Reify.Graph
+import Data.Vect
 
 import LambdaCube.GL hiding (Exp, Var, Let, V3, V2)
 import qualified LambdaCube.GL as LC
 
 ---------------------
 
+{-
 wires :: IO (Wire Int ExpV1)
 wires = flip evalStateT 0 $ transWire $ WHorizontal ()
     [ WVertical ()
@@ -39,8 +41,13 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
         ]
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
-
-
+--    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
+--    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
+--    wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
+--    wire1D 2000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
+--    wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
+--    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
+--    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
     , WVertical ()
         [ setDuration 3 $ WHorizontal ()
             [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
@@ -75,30 +82,56 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
             ]
         ]
-
-
-
+--    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
+--    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
 --    wire2DNorm True 2 2 $ planeXY
-
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
-{-
-    wire2DNorm False 50 50 $ magnifyZ 100 . projectionZ . magnifyZ 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . planeZY
-    wire2DNorm False 50 50 $
-        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . rotateYZ (- pi / 4) . magnify (8 * pi) . translateX (-2) . magnifyZ 0.1 .
-        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) .
-        planeZY
--}
+--    wire2DNorm False 50 50 $ magnifyZ 100 . projectionZ . magnifyZ 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . planeZY
+--    wire2DNorm False 50 50 $
+--        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . rotateYZ (- pi / 4) . magnify (8 * pi) . translateX (-2) . magnifyZ 0.1 .
+--        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) .
+--        planeZY
     , wire2DNormAlpha False 500 10 (tubularPatch (mulSV3 3 . lissajousKnot (V3 3 4 7) (V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot))
                 (Just $ const $ V3 1 1 1) (Just $ const $ 0.5)
-
 --    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (Just $ sin . normV2)
     ]
   where
     env = magnify 2 . tubularNeighbourhood (helix 0.9 (sin time + 1.5)) . tubularNeighbourhood (helix 0.3 0.5 . (+ 0.5 * sin (2 * time))) . tubularNeighbourhood (helix 0.1 (0.5/3) . (+ 0.03 * sin (10 * time)))
-
     env2 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)
-
     env3 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . logarithmicSpiral 0.1 0.04)
+-}
+
+instance Knot.Timed Float where
+  time = error "Can't get the time in Float land"
+
+curveToCameraPath :: (Floating s, Timed s) => Curve -> s -> (V3 s, V3 (V3 s))
+curveToCameraPath curve t = (curve t, frenetFrame curve t)
+
+cameraToMat4 :: (V3 Float, V3 (V3 Float)) -> Mat4
+cameraToMat4 (origin, V3 columnX columnY columnZ) =
+  let
+    V3 ox oy oz = origin
+    V3 xx xy xz = columnX
+    V3 yx yy yz = columnY
+    V3 zx zy zz = columnZ
+    rx = Vec4 xx yx zx 0
+    ry = Vec4 xy yy zy 0
+    rz = Vec4 xz yz zz 0
+    rw = Vec4  0  0  0 1
+    tx = Vec4 1 0 0 0
+    ty = Vec4 0 1 0 0
+    tz = Vec4 0 0 1 0
+    tw = Vec4 (-ox) (-oy) (-oz) 1
+  in Mat4 tx ty tz tw .*. Mat4 rx ry rz rw
+
+---------------------
+
+wires :: IO (Wire Int ExpV1)
+wires = flip evalStateT 0 $ transWire $ WHorizontal ()
+  [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
+  , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
+  , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
+  ]
 
 tt = 300
 
@@ -159,8 +192,6 @@ newid = do
     put $ st + 1
     return st
 
--- 
-
 transFun :: Traversable f => String -> (Exp -> f Exp) -> IO (ExpV1 -> f ExpV1)
 transFun s f = fmap (\e t -> fmap ($ M.singleton s t) e) . traverse transExp $ f $ Var s
 
@@ -213,4 +244,3 @@ instance Timed Exp where
 
 testComplexity = (normalPatch $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp
 testComplexity' = (normalPatch $ tubularPatch (mulSV3 0.1 . unKnot) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp
-
