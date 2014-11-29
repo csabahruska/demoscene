@@ -450,7 +450,7 @@ main' wires = do
         , displayOptions_openGLVersion      = (3,2)
         , displayOptions_openGLProfile      = CoreProfile
         , displayOptions_numDepthBits       = 24
---        , displayOptions_displayMode    = Fullscreen
+        , displayOptions_displayMode    = Fullscreen
         }
     setWindowTitle "Knots by Lambda"
 
@@ -504,7 +504,7 @@ main' wires = do
       uniformFloat "textAlpha" uniforms 1
 
       uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
-      uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
+      uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (720 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
 
       render loadingRenderer
       swapBuffers
@@ -540,7 +540,7 @@ main' wires = do
     uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
 
     --uniformM33F "textTransform" text1Uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
-    uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
+    uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (720 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
 
     -- distorsion
     let p   = perlin
