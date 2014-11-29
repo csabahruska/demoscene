@@ -70,6 +70,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
             ]
+{-
         , setDuration 10 $ WHorizontal ()
             [ wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
             , wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
@@ -77,6 +78,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
         , setDuration 10 $ WHorizontal ()
             [ wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
             ]
+-}
         , setDuration 10 $ WHorizontal ()
             [ wire1D 2000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)

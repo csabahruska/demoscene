@@ -330,6 +330,11 @@ streamName = ("stream" <>) . BS.pack . show
 
 type Time = Double
 
+data Event
+    = TurnOn Object
+    | TurnOff Object
+    | RecurrentEvent (Maybe Time){-end-} (Time -> IO ())
+
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
     initialize
@@ -481,11 +486,17 @@ main' wires = do
     setWindowSize 1024 768
     texture =<< compileTexture2DRGBAF True False imgPattern
 
-    let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Maybe Time, Either Object Object)])
-        addStreams t c = case c of
+    let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Time, Event)])
+        addStreams Nothing _ = return (Nothing, [])
+        addStreams t@(Just ti) c = case c of
             WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
-            WFadeOut{..} -> return (liftA2 (+) (realToFrac <$> wDuration) t,[])
+            WFadeOut{wDuration = Just len} -> return (t', [(ti, RecurrentEvent t' action)])
+              where
+                len' = realToFrac len
+                t' = liftA2 (+) (Just len') t
+                action time = print v >> volume v v
+                  where v = realToFrac $ min 1 $ max 0 $ 1 - ((time - ti) / len')
             w -> do
                 gpuCube <- compileMesh $ case w of
                     Wire1D {..} -> line wXResolution
@@ -494,10 +505,12 @@ main' wires = do
 
                 when (maybe True (> 0) t) $
                     enableObject obj False
-                let t' = liftA2 (+) (realToFrac <$> wDuration w) t
-                return (t', [(t, Left obj), (t', Right obj)])
+                case wDuration w of
+                    Nothing -> return (Nothing, [(ti, TurnOn obj)])
+                    Just dur -> return (Just ti', [(ti, TurnOn obj), (ti', TurnOff obj)])
+                        where ti' = ti + realToFrac dur
 
-        merge = mergeBy (compare' `on` fst)
+        merge = mergeBy (compare `on` fst)
         compare' (Just a) (Just b) = compare a b
         compare' Nothing Nothing = EQ
         compare' Nothing _ = GT
@@ -514,17 +527,22 @@ main' wires = do
         cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
         loop [] = return ()
-        loop ((Nothing,_):_) = return ()
+--        loop ((Nothing,_):_) = return ()
         loop schedule = do
             curTime <- getCurrentTime
             satrtTime <- readIORef timeRef
             let t' = realToFrac $ curTime `diffUTCTime` satrtTime
             let t = t'
-            let (old, schedule') = span (\(x, _) -> compare' x (Just t') == LT) schedule
-            forM_ old $ \(i, obj) -> do
-                print t
-                print $ either (const $ "add" ++ show i) (const $ "del" ++ show i) obj
-                either (flip enableObject True) (flip enableObject False) obj
+            let (old, schedule_) = span (\(x, _) -> compare x t' == LT) schedule
+            newEvents <- forM old $ \(i, event) -> do
+                case event of
+                    TurnOn obj -> enableObject obj True >> return []
+                    TurnOff obj -> enableObject obj False >> return []
+                    RecurrentEvent end action ->
+                        if (compare' (Just t') end == LT)
+                        then action t' >> return [(t', RecurrentEvent end action)]
+                        else return []
+            let schedule' = foldr merge [] newEvents `merge` schedule_
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
                 cam = cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac t)
@@ -544,17 +562,26 @@ main' wires = do
             k <- keyIsPressed KeyEsc
             unless k $ loop schedule'
 
---    initAudio 2 44100 1024
---    smp <- sampleFromFile "music/Take_Them.ogg" 1
+    let audioOn = True
+    smp <- if audioOn
+      then do
+        initAudio 2 44100 1024
+        smp <- sampleFromFile "music/Take_Them.ogg" 1
+        soundPlay smp 1 1 0 1
+        return $ Just smp
+      else return Nothing
 
-    resetTime
---    soundPlay smp 1 1 0 1
+--    resetTime
 
     writeIORef timeRef =<< getCurrentTime
 
     loop schedule
---    soundStop smp
---    soundStopAll
+
+    case smp of
+      Nothing -> return ()
+      Just smp -> do
+        soundStop smp
+        soundStopAll
 
     dispose renderer
     closeWindow
