@@ -445,11 +445,12 @@ main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
     initialize
     openWindow defaultDisplayOptions
-        { displayOptions_width              = 1024
-        , displayOptions_height             = 768
+        { displayOptions_width              = 1280
+        , displayOptions_height             = 720
         , displayOptions_openGLVersion      = (3,2)
         , displayOptions_openGLProfile      = CoreProfile
         , displayOptions_numDepthBits       = 24
+--        , displayOptions_displayMode    = Fullscreen
         }
     setWindowTitle "Knots by Lambda"
 
@@ -481,7 +482,7 @@ main' wires = do
     -- loading screen
     loadingRenderer <- compileRenderer $ ScreenOut loadingImage
     initUtility loadingRenderer
-    setScreenSize loadingRenderer 1024 768
+    setScreenSize loadingRenderer 1280 720
 
     do
       -- text
@@ -594,7 +595,7 @@ main' wires = do
         time            = uniformFloat "time" uniformMap
         setWindowSize   = setScreenSize renderer
 
-    setWindowSize 1024 768
+    setWindowSize 1280 720
     texture =<< compileTexture2DRGBAF True False imgPattern
     uniformFTexture2D "ParticleTexture" uniformMap =<< compileTexture2DRGBAF True False imgParticle
     uniformFloat "brightness" uniformMap 1
@@ -672,7 +673,7 @@ main' wires = do
         --camCurve = Knot.mulSV3 2 . Knot.unKnot :: Knot.Curve
         camCurve = CamMat cm -- CamCurve $ Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
 
-        pm  = perspective 0.1 100 (pi/4) (1024 / 768)
+        pm  = perspective 0.1 100 (pi/4) (1280 / 720)
         loop :: Camera -> [(Time, Event)] -> IO ()
         loop _ [] = return ()
         loop camCurve schedule = do
