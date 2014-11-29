@@ -40,6 +40,8 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
         [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
         , wire1D 200 $ mulSV3 1.1 . unKnot
         ]
+    , WText2D () (Just 8) (CamMat $ fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))) "Hello Demoscene"
+
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
@@ -199,6 +201,12 @@ data Wire i e
         { wDuration  :: Maybe Float
         , wCamera :: Camera
         }
+    | WText2D
+        { wInfo :: i
+        , wDuration  :: Maybe Float
+        , wCamera :: Camera
+        , wText :: String
+        }
     -- sprite
     -- color
     -- normal
@@ -223,6 +231,7 @@ transWire (WHorizontal info ws) = newid >>= \id -> WHorizontal <$> pure id <*> t
 transWire (WVertical info ws) = newid >>= \id -> WVertical <$> pure id <*> traverse transWire ws
 transWire (WFadeOut info ws) = newid >>= \id -> WFadeOut <$> pure id <*> pure ws
 transWire (WCamera dur ws) = WCamera <$> pure dur <*> pure ws
+transWire (WText2D info dur ws txt) = newid >>= \id -> WText2D <$> pure id <*> pure dur <*> pure ws <*> pure txt
 
 newid = do
     st <- get

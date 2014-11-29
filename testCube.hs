@@ -4,6 +4,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
 
 import System.Environment
 import "GLFW-b" Graphics.UI.GLFW as GLFW
@@ -119,7 +120,7 @@ textRender = renderText
         transform = Uni (IM33F "textTransform") :: Exp V M33F
         (pos, uv) = untup2 attr
 
-    textFragmentShader uv = FragmentOut (pack' (V4 result result result result) :. ZT)
+    textFragmentShader uv = FragmentOut (pack' (V4 result result result (result @* (Uni (IFloat "textAlpha") :: Exp F Float))) :. ZT)
       where
         result = step distance
         distance = case useCompositeDistanceField of
@@ -524,9 +525,10 @@ main' wires = do
     textMesh <- buildTextMesh atlas textStyle "Hello, gorgeous world!"
 
     textBuffer <- compileMesh textMesh
-    textObject <- addMesh renderer "textMesh" textBuffer []
+    --textObject <- addMesh renderer "textMesh" textBuffer ["textTransform"]
 
     let uniforms = uniformSetter renderer
+        --text1Uniforms = objectUniformSetter textObject
         letterScale = atlasLetterScale (atlasOptions atlas)
         letterPadding = atlasLetterPadding (atlasOptions atlas)
         scale = 0.1
@@ -534,7 +536,7 @@ main' wires = do
         ofsY = 0
     uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
 
-    uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
+    --uniformM33F "textTransform" text1Uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
     uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
 
     -- distorsion
@@ -613,17 +615,29 @@ main' wires = do
               where
                 t' = liftA2 (+) t (realToFrac <$> wDuration)
             w -> do
-                gpuCube <- compileMesh $ case w of
-                    Wire1D {..} -> line wXResolution
-                    Wire2D { wXResolution = i, wYResolution = j } -> grid i j 1
-                    WParticle { wXResolution = i, wYResolution = j , wZResolution = k } -> pointGrid3D i j k
-                obj <- addMesh renderer (streamName $ wInfo w) gpuCube []
+                (gpuCube, act, sName) <- case w of
+                    Wire1D {..} -> (,const [],streamName $ wInfo) <$> compileMesh (line wXResolution)
+                    Wire2D { wXResolution = i, wYResolution = j } -> (,const [],streamName $ wInfo w) <$> compileMesh (grid i j 1)
+                    WParticle { wXResolution = i, wYResolution = j , wZResolution = k } -> (,const [],streamName $ wInfo w) <$> compileMesh (pointGrid3D i j k)
+                    WText2D { wText = txt, wCamera = cm, wDuration } -> do
+                      m <- compileMesh =<< buildTextMesh atlas textStyle txt
+                      let
+                          len' = realToFrac <$> wDuration
+                          t' = liftA2 (+) len' t
+                          action o time = do
+                            let textUniforms = objectUniformSetter o
+                                scale = 0.1
+                                ofsX = -0.3
+                                ofsY = 0
+                            uniformM33F "textTransform" textUniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
+                      return (m,\o -> [(ti,RecurrentEvent t' (action o))],"textMesh")
+                obj <- addMesh renderer sName gpuCube ["textTransform","textAlpha"]
 
                 when (maybe True (> 0) t) $
                     enableObject obj False
                 case wDuration w of
-                    Nothing -> return (Nothing, [(ti, TurnOn obj)])
-                    Just dur -> return (Just ti', [(ti, TurnOn obj), (ti', TurnOff obj)])
+                    Nothing -> return (Nothing, [(ti, TurnOn obj)] `merge` act obj)
+                    Just dur -> return (Just ti', [(ti, TurnOn obj), (ti', TurnOff obj)] `merge` act obj)
                         where ti' = ti + realToFrac dur
 
         merge = mergeBy (compare `on` fst)
