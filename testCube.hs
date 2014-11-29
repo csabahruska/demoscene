@@ -513,7 +513,11 @@ main' wires = do
 
     timeRef <- newIORef =<< getCurrentTime
 
-    let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
+    let
+        camCurve :: Knot.Curve
+        --camCurve = Knot.mulSV3 2 . Knot.unKnot :: Knot.Curve
+        camCurve = Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
+        cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
         loop [] = return ()
         loop ((Nothing,_):_) = return ()
@@ -529,7 +533,7 @@ main' wires = do
                 either (flip enableObject True) (flip enableObject False) obj
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
-                cam = cameraToMat4 $ curveToCameraPath (Knot.mulSV3 3 . Knot.unKnot) (0.05 * realToFrac t)
+                cam = cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac t)
             mvp $! mat4ToM44F $! cam .*. pm
             mv $! mat4ToM44F $! cam
             proj $! mat4ToM44F $! pm
@@ -546,27 +550,27 @@ main' wires = do
             k <- keyIsPressed KeyEsc
             unless k $ loop schedule'
 
-    initAudio 2 44100 1024
-    smp <- sampleFromFile "music/Take_Them.ogg" 1
+--    initAudio 2 44100 1024
+--    smp <- sampleFromFile "music/Take_Them.ogg" 1
 
     resetTime
-    soundPlay smp 1 1 0 1
+--    soundPlay smp 1 1 0 1
 
     writeIORef timeRef =<< getCurrentTime
 
     loop schedule
-    soundStop smp
-    soundStopAll
+--    soundStop smp
+--    soundStopAll
 
     dispose renderer
     closeWindow
-    soundStopAll
+--    soundStopAll
 
-    let waitAudio = do
-          n <- soundActive
-          if n == 0 then return () else waitAudio
-    waitAudio
-    finishAudio
+--    let waitAudio = do
+--          n <- soundActive
+--          if n == 0 then return () else waitAudio
+--    waitAudio
+--    finishAudio
 
 mergeBy :: (a -> a -> Ordering) -> [a] -> [a] -> [a]
 mergeBy f [] xs = xs
