@@ -50,11 +50,12 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
     , WVertical ()
-        [ WCamera (Just 3) $ CamCurve $ magnify 1 . lissajousKnot (V3 3 5 7) (V3 0.7 0.1 0)
+        [ WCamera (Just 10) $ CamCurve $ mulSV3 2 . unKnot
+        , WCamera (Just 10) $ CamCurve $ magnify 1 . lissajousKnot (V3 3 5 7) (V3 0.7 0.1 0)
         , WCamera Nothing $ CamMat $ fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         ]
     , WVertical ()
-        [ setDuration 20 $ WHorizontal ()
+        [ setDuration 30 $ WHorizontal ()
             [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
             , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
                                 (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
@@ -83,12 +84,13 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
         , setDuration 10 $ WHorizontal ()
             [ wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
             ]
--}
+
         , setDuration 10 $ WHorizontal ()
             [ wire1D 2000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
             ]
-        , WFadeOut () (Just 3)
+-}
+        , WFadeOut () (Just 5)
         ]
 --    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
 --    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY

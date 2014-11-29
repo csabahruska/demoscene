@@ -398,7 +398,7 @@ smp t = Sampler LinearFilter ClampToEdge t
 copyImg img = renderScreen frag
   where
     frag :: Exp F V2F -> FragmentOut (Color V4F :+: ZZ)
-    frag uv = FragmentOut $ color :. ZT
+    frag uv = FragmentOut $ color @* (Uni (IFloat "brightness") :: Exp F Float):. ZT
       where
         color = smp img uv
         sizeI = 1024 :: Word32
@@ -513,7 +513,7 @@ main' wires = do
     Right imgPattern <- loadImage fname
     Right imgParticle <- loadImage "textures/particle.png"
 
-    renderer <- compileRenderer $ ScreenOut frameImage''
+    renderer <- compileRenderer $ ScreenOut $ copyImg frameImage''
     initUtility renderer
 
     -- text
@@ -593,6 +593,7 @@ main' wires = do
     setWindowSize 1024 768
     texture =<< compileTexture2DRGBAF True False imgPattern
     uniformFTexture2D "ParticleTexture" uniformMap =<< compileTexture2DRGBAF True False imgParticle
+    uniformFloat "brightness" uniformMap 1
 
     let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Time, Event)])
         addStreams Nothing _ = return (Nothing, [])
