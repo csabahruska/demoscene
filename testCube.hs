@@ -120,8 +120,9 @@ textRender = renderText
         transform = Uni (IM33F "textTransform") :: Exp V M33F
         (pos, uv) = untup2 attr
 
-    textFragmentShader uv = FragmentOut (pack' (V4 result result result (result @* (Uni (IFloat "textAlpha") :: Exp F Float))) :. ZT)
+    textFragmentShader uv = FragmentOut (pack' (V4 result result result result) @* fade :. ZT)
       where
+        fade = Uni (IFloat "textAlpha") :: Exp F Float
         result = step distance
         distance = case useCompositeDistanceField of
             False -> SDF.sampleDistance "fontAtlas" uv
@@ -499,6 +500,7 @@ main' wires = do
           ofsX = -0.85
           ofsY = 0
       uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
+      uniformFloat "textAlpha" uniforms 1
 
       uniformM33F "textTransform" uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
       uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
@@ -624,11 +626,24 @@ main' wires = do
                       let
                           len' = realToFrac <$> wDuration
                           t' = liftA2 (+) len' t
+                          tEnd = maybe 1000000 id t'
+                          tStart = ti
                           action o time = do
                             let textUniforms = objectUniformSetter o
                                 scale = 0.1
                                 ofsX = -0.3
                                 ofsY = 0
+                                fadeTime = 1
+                                locTime = time - tStart
+                                fadeIn = tStart + fadeTime
+                                fadeOut = tEnd - fadeTime
+                                alpha = realToFrac $ case time < fadeIn of
+                                  True -> 1 - (fadeIn - time) / fadeTime
+                                  False -> case time < fadeOut of
+                                    True -> 1
+                                    False -> (tEnd - time) / fadeTime
+                            --print (tStart,fadeIn,time,fadeOut,tEnd,alpha)
+                            uniformFloat "textAlpha" textUniforms alpha
                             uniformM33F "textTransform" textUniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
                       return (m,\o -> [(ti,RecurrentEvent t' (action o))],"textMesh")
                 obj <- addMesh renderer sName gpuCube ["textTransform","textAlpha"]
