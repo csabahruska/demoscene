@@ -128,7 +128,7 @@ cameraToMat4 (origin, V3 columnX columnY columnZ) =
 ---------------------
 
 wires :: IO (Wire Int ExpV1)
-wires = flip evalStateT 0 $ transWire $ WHorizontal ()
+wires = flip evalStateT 0 $ transWire $ setDuration 100 $ WHorizontal ()
   [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
   , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
   , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
