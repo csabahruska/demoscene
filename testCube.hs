@@ -484,7 +484,7 @@ main' wires = do
     let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Maybe Time, Either Object Object)])
         addStreams t c = case c of
             WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
-            WVertical{..} -> (id *** foldr merge []) <$> acc addStreams t wWires
+            WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
             WFadeOut{..} -> return (liftA2 (+) (realToFrac <$> wDuration) t,[])
             w -> do
                 gpuCube <- compileMesh $ case w of
@@ -502,12 +502,6 @@ main' wires = do
         compare' Nothing Nothing = EQ
         compare' Nothing _ = GT
         compare' _ _ = LT
-
-        acc f x [] = return (x, [])
-        acc f x (y:ys) = do
-            (x', y') <- f x y
-            (x'', ys') <- acc f x' ys
-            return (x'', y':ys')
 
     (_end, schedule) <- addStreams (Just 0) wires
 
@@ -578,3 +572,12 @@ mergeBy f xs [] = xs
 mergeBy f (x:xs) (y:ys) = case f x y of
     LT -> x: mergeBy f xs (y:ys)
     _  -> y: mergeBy f (x:xs) ys
+
+mapAccumLM :: Monad m => (st -> a -> m (st, b)) -> st -> [a] -> m (st, [b])
+mapAccumLM f x [] = return (x, [])
+mapAccumLM f x (y:ys) = do
+    (x', y') <- f x y
+    (x'', ys') <- mapAccumLM f x' ys
+    return (x'', y':ys')
+
+
