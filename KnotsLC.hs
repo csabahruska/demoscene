@@ -33,6 +33,12 @@ import qualified LambdaCube.GL as LC
 
 ---------------------
 
+defaultCam :: LC.M33F
+defaultCam = LC.V3 (LC.V3 (scale * 0.75) 0 0) (LC.V3 0 scale 0) (LC.V3 ofsX ofsY 1)
+  where
+    scale = 0.1
+    ofsX = -0.3
+    ofsY = 0
 
 wires :: IO (Wire Int ExpV1)
 wires = flip evalStateT 0 $ transWire $ WHorizontal ()
@@ -40,7 +46,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
         [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
         , wire1D 200 $ mulSV3 1.1 . unKnot
         ]
-    , WText2D () (Just 8) (CamMat $ fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))) "Hello Demoscene"
+    , WText2D () (Just 8) defaultCam "Hello Demoscene"
 
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
@@ -204,7 +210,7 @@ data Wire i e
     | WText2D
         { wInfo :: i
         , wDuration  :: Maybe Float
-        , wCamera :: Camera
+        , wTextPosition :: LC.M33F
         , wText :: String
         }
     -- sprite

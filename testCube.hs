@@ -621,7 +621,7 @@ main' wires = do
                     Wire1D {..} -> (,const [],streamName $ wInfo) <$> compileMesh (line wXResolution)
                     Wire2D { wXResolution = i, wYResolution = j } -> (,const [],streamName $ wInfo w) <$> compileMesh (grid i j 1)
                     WParticle { wXResolution = i, wYResolution = j , wZResolution = k } -> (,const [],streamName $ wInfo w) <$> compileMesh (pointGrid3D i j k)
-                    WText2D { wText = txt, wCamera = cm, wDuration } -> do
+                    WText2D { wText = txt, wTextPosition, wDuration } -> do
                       m <- compileMesh =<< buildTextMesh atlas textStyle txt
                       let
                           len' = realToFrac <$> wDuration
@@ -630,9 +630,6 @@ main' wires = do
                           tStart = ti
                           action o time = do
                             let textUniforms = objectUniformSetter o
-                                scale = 0.1
-                                ofsX = -0.3
-                                ofsY = 0
                                 fadeTime = 1
                                 locTime = time - tStart
                                 fadeIn = tStart + fadeTime
@@ -642,9 +639,14 @@ main' wires = do
                                   False -> case time < fadeOut of
                                     True -> 1
                                     False -> (tEnd - time) / fadeTime
+                                {-
+                                cam = case wCamera of
+                                  CamCurve camCurve -> cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac $ time - tStart)
+                                  CamMat cm -> cm
+                                -}
                             --print (tStart,fadeIn,time,fadeOut,tEnd,alpha)
                             uniformFloat "textAlpha" textUniforms alpha
-                            uniformM33F "textTransform" textUniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
+                            uniformM33F "textTransform" textUniforms wTextPosition
                       return (m,\o -> [(ti,RecurrentEvent t' (action o))],"textMesh")
                 obj <- addMesh renderer sName gpuCube ["textTransform","textAlpha"]
 
