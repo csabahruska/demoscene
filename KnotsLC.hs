@@ -164,6 +164,18 @@ data Wire i e
         , wColor     :: Maybe (V2 e -> V3 e)
         , wAlpha     :: Maybe (V2 e -> e)
         }
+    | WParticle
+        { wInfo :: i
+        , wDuration  :: Maybe Float
+        , wSimpleColor  :: Bool
+        , wXResolution :: Int
+        , wYResolution :: Int
+        , wZResolution :: Int
+        , wVertex    :: V2 e -> V3 e
+        , wNormal    :: Maybe (V2 e -> V3 e)
+        , wColor     :: Maybe (V2 e -> V3 e)
+        , wAlpha     :: Maybe (V2 e -> e)
+        }
     | WHorizontal
         { wInfo :: i
         , wWires :: [Wire i e]

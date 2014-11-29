@@ -128,7 +128,7 @@ textRender = renderText
         step = smoothstep' (floatF 0.5 @- outlineWidth) (floatF 0.5 @+ outlineWidth)
         outlineWidth = Uni (IFloat "outlineWidth") :: Exp F Float
 
-texturing1D :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing1D :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V3F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
@@ -137,16 +137,16 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
     fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
     fragmentCtx = AccumulationContext Nothing $ DepthOp Less True:.ColorOp NoBlending (one' :: V4B):.ZT
 
-    fragmentStream :: Exp Obj (FragmentStream 1 V2F)
+    fragmentStream :: Exp Obj (FragmentStream 1 V3F)
     fragmentStream = Rasterize rasterCtx primitiveStream
 
-    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V2F)
+    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V3F)
     primitiveStream = Transform vertexShader objs
 
     modelViewProj :: Exp V M44F
     modelViewProj = Uni (IM44F "MVP")
 
-    vertexShader :: Exp V (V2F) -> VertexOut () V2F
+    vertexShader :: Exp V (V3F) -> VertexOut () V3F
     vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv:.ZT)
       where
         v4 :: Exp V V4F
@@ -155,27 +155,27 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
               where
                 Knot.V3 fx fy fz = wVertex1 x
 
-        V2 x y = unpack' uv
+        V3 x y z = unpack' uv
 
-    fragmentShader :: Exp F V2F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-    fragmentShader uv = FragmentOutRastDepth $ color tex uv :. ZT
+    fragmentShader :: Exp F V3F -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
+    fragmentShader uv = FragmentOutRastDepth $ color tex (v3v2 uv) :. ZT
       where
         tex = TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
 
 data VertFrag where
     VertFrag :: forall a . GPU a
-            => (Exp V (V2F) -> VertexOut () a)
+            => (Exp V V3F -> VertexOut () a)
             -> (Exp F a -> FragmentOut (Depth Float :+: Color V4F :+: ZZ))
             -> VertFrag
 
-texturing2D :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturing2D :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V3F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing2D wire@(Wire2D {..})
     = texturing2D_ wire vertFrag
   where
     vertFrag = case wire of
         Wire2D { wColor = Just fcolor } ->  VertFrag vertexShader fragmentShader
           where
-            vertexShader :: Exp V (V2F) -> VertexOut () (V2F, V3F, V4F, V3F, Float)
+            vertexShader :: Exp V (V3F) -> VertexOut () (V3F, V3F, V4F, V3F, Float)
             vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns_ :. Smooth pos :. Smooth color :. Flat alpha :. ZT)
               where
                 v4 = modelViewProj @*. ps
@@ -190,7 +190,7 @@ texturing2D wire@(Wire2D {..})
                       where
                         Knot.V3 nx ny nz = fn $ Knot.V2 x y
 
-                V2 x y = unpack' uv
+                V3 x y z = unpack' uv
 
 --            fragmentShader :: Exp F (V2F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
             fragmentShader (untup5 -> (uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ (if wSimpleColor then clr else clr @* dot' n dlight) :. ZT
@@ -211,7 +211,7 @@ texturing2D wire@(Wire2D {..})
 
         _ ->  VertFrag vertexShader fragmentShader
           where
-            vertexShader :: Exp V (V2F) -> VertexOut () (V2F, V3F, V4F, Float)
+            vertexShader :: Exp V (V3F) -> VertexOut () (V3F, V3F, V4F, Float)
             vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :. Smooth pos :. Flat alpha :. ZT)
               where
                 (v4, ns, pos, alpha) = case wire of
@@ -226,11 +226,12 @@ texturing2D wire@(Wire2D {..})
                               where
                                 Knot.V3 nx ny nz = fn $ Knot.V2 x y
 
-                V2 x y = unpack' uv
+                V3 x y z = unpack' uv
 
-            fragmentShader :: Exp F (V2F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-            fragmentShader (untup4 -> (uv, ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
+            fragmentShader :: Exp F (V3F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
+            fragmentShader (untup4 -> (uv', ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
               where
+                uv = v3v2 uv'
                 tex = {-imgToTex textImg -} TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
                 clr = color tex uv
                 
@@ -254,9 +255,96 @@ texturing2D wire@(Wire2D {..})
     prj1 a = drop4 $ modelView @*. snoc a 1
     prj0 a = drop4 $ modelView @*. snoc a 0
 
+texturingParticle :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Point (V3F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturingParticle wire@(WParticle {..})
+    = texturingParticle_ wire vertFrag
+  where
+    vertFrag = case wire of
+        WParticle { wColor = Just fcolor } ->  VertFrag vertexShader fragmentShader
+          where
+            vertexShader :: Exp V (V3F) -> VertexOut () (V3F, V3F, V4F, V3F, Float)
+            vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns_ :. Smooth pos :. Smooth color :. Flat alpha :. ZT)
+              where
+                v4 = modelViewProj @*. ps
+                pos = modelView @*. ps
+                ps = pack' $ V4 fx fy fz (Const 1)
+                Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
+                alpha = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
+                color = case fcolor $ Knot.V2 x y of Knot.V3 r g b -> pack' $ V3 r g b
+                ns_ = case wNormal of
+                    Nothing -> Const zero' --undefined
+                    Just fn -> pack' $ V3 nx ny nz
+                      where
+                        Knot.V3 nx ny nz = fn $ Knot.V2 x y
+
+                V3 x y z = unpack' uv
+
+--            fragmentShader :: Exp F (V2F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
+            fragmentShader (untup5 -> (uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ (if wSimpleColor then clr else clr @* dot' n dlight) :. ZT
+              where
+                --tex = {-imgToTex textImg -} TextureSlot "ParticleTexture" $ Texture2D (Float RGBA) n1
+                clr = case unpack' col of (V3 r g b) -> pack' $ V4 r g b alpha -- color tex uv
+                
+                pos = v4v3 pos'
+                pointlight = v3FF $ V3 1 1 1
+                pointlight1 = v3FF $ V3 (-5) (-1) 1
+                dlight = normalize' $ prj1 pointlight @- pos
+                dlight1 = normalize' $ prj1 pointlight1 @- pos
+                color0 = v4FF $ V4 0 0 1 1
+                color1 = v4FF $ V4 1 0 0 1
+                n = normalize' ns
+                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
+                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
+
+        _ ->  VertFrag vertexShader fragmentShader
+          where
+            vertexShader :: Exp V (V3F) -> VertexOut () (V3F, V3F, V4F, Float)
+            vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :. Smooth pos :. Flat alpha :. ZT)
+              where
+                (v4, ns, pos, alpha) = case wire of
+                    WParticle {..} -> (modelViewProj @*. ps, ns_, modelView @*. ps, transparency)
+                      where
+                        ps = pack' $ V4 fx fy fz (Const 1)
+                        Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
+                        transparency = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
+                        ns_ = case wNormal of
+                            Nothing -> Const zero' --undefined
+                            Just fn -> pack' $ V3 nx ny nz
+                              where
+                                Knot.V3 nx ny nz = fn $ Knot.V2 x y
+
+                V3 x y z = unpack' uv
+
+            fragmentShader :: Exp F (V3F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
+            fragmentShader (untup4 -> (uv', ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
+              where
+                uv = v3v2 uv'
+                tex = {-imgToTex textImg -} TextureSlot "ParticleTexture" $ Texture2D (Float RGBA) n1
+                clr = color tex pointCoord'
+
+                pos = v4v3 pos'
+                pointlight = v3FF $ V3 1 1 1
+                pointlight1 = v3FF $ V3 (-5) (-1) 1
+                dlight = normalize' $ prj1 pointlight @- pos
+                dlight1 = normalize' $ prj1 pointlight1 @- pos
+                color0 = v4FF $ V4 0 0 1 1
+                color1 = v4FF $ V4 1 0 0 1
+                n = normalize' ns
+                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
+                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
+
+    modelViewProj :: Exp f M44F
+    modelViewProj = Uni (IM44F "MVP")
+
+    modelView :: Exp f M44F
+    modelView = Uni (IM44F "MV")
+
+    prj1 a = drop4 $ modelView @*. snoc a 1
+    prj0 a = drop4 $ modelView @*. snoc a 0
 
 
-texturing2D_ :: Wire Int (Exp V Float) -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V2F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+
+texturing2D_ :: Wire Int (Exp V Float) -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Triangle (V3F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturing2D_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Triangle
@@ -275,8 +363,20 @@ texturing2D_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumula
 --    primitiveStream :: Exp Obj (PrimitiveStream Triangle () 1 V V2F)
     primitiveStream = Transform vertexShader objs
 
-    proj :: Exp f M44F
-    proj = Uni (IM44F "P")
+texturingParticle_ :: Wire Int (Exp V Float) -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Point (V3F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
+texturingParticle_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
+  where
+    rasterCtx :: RasterContext Point
+    rasterCtx = PointCtx ProgramPointSize 10 UpperLeft
+
+    fragmentCtx :: AccumulationContext (Depth Float :+: (Color (V4 Float) :+: ZZ))
+    fragmentCtx = AccumulationContext Nothing $ DepthOp Less False :.ColorOp blend (one' :: V4B):.ZT
+
+--    fragmentStream :: Exp Obj (FragmentStream 1 V2F)
+    fragmentStream = Rasterize rasterCtx primitiveStream
+
+--    primitiveStream :: Exp Obj (PrimitiveStream Point () 1 V V2F)
+    primitiveStream = Transform vertexShader objs
 
 
 
@@ -285,6 +385,9 @@ v2v4 v = let V2 x y = unpack' v in pack' $ V4 x y (Const 0) (Const 1)
 
 v3v4 :: Exp s V3F -> Exp s V4F
 v3v4 v = let V3 x y z = unpack' v in pack' $ V4 x y z (Const 1)
+
+v3v2 :: Exp s V3F -> Exp s V2F
+v3v2 v = let V3 x y _ = unpack' v in pack' $ V2 x y
 
 v4v3 :: Exp s V4F -> Exp s V3F
 v4v3 v = let V4 x y z _ = unpack' v in pack' $ V3 x y z
@@ -362,8 +465,9 @@ main' wires = do
                           }
 
         addWire fb (WFadeOut{}) = fb
-        addWire fb wire@(Wire1D {..}) = texturing1D wire fb (Fetch (streamName wInfo) Triangles (IV2F "position"))
-        addWire fb wire@(Wire2D {..}) = texturing2D wire fb (Fetch (streamName wInfo) Triangles (IV2F "position"))
+        addWire fb wire@(Wire1D {..}) = texturing1D wire fb (Fetch (streamName wInfo) Triangles (IV3F "position"))
+        addWire fb wire@(Wire2D {..}) = texturing2D wire fb (Fetch (streamName wInfo) Triangles (IV3F "position"))
+        addWire fb wire@(WParticle {..}) = texturingParticle wire fb (Fetch (streamName wInfo) Points (IV3F "position"))
         addWire fb w = foldl addWire fb $ wWires w
 
         frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex $ PrjFrameBuffer "" tix0 $ distortFX frameImage'
@@ -405,6 +509,7 @@ main' wires = do
           [] -> "textures/rusty_metal.jpg"
           (n:_) -> n
     Right imgPattern <- loadImage fname
+    Right imgParticle <- loadImage "textures/particle.png"
 
     renderer <- compileRenderer $ ScreenOut frameImage''
     initUtility renderer
@@ -485,6 +590,7 @@ main' wires = do
 
     setWindowSize 1024 768
     texture =<< compileTexture2DRGBAF True False imgPattern
+    uniformFTexture2D "ParticleTexture" uniformMap =<< compileTexture2DRGBAF True False imgParticle
 
     let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Time, Event)])
         addStreams Nothing _ = return (Nothing, [])
@@ -500,7 +606,8 @@ main' wires = do
             w -> do
                 gpuCube <- compileMesh $ case w of
                     Wire1D {..} -> line wXResolution
-                    Wire2D { wXResolution = i, wYResolution = j } -> grid i j
+                    Wire2D { wXResolution = i, wYResolution = j } -> grid i j 1
+                    WParticle { wXResolution = i, wYResolution = j , wZResolution = k } -> pointGrid3D i j k
                 obj <- addMesh renderer (streamName $ wInfo w) gpuCube []
 
                 when (maybe True (> 0) t) $
@@ -522,8 +629,8 @@ main' wires = do
 
     let
         camCurve :: Knot.Curve
-        --camCurve = Knot.mulSV3 2 . Knot.unKnot :: Knot.Curve
-        camCurve = Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
+        camCurve = Knot.mulSV3 2 . Knot.unKnot :: Knot.Curve
+        --camCurve = Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
         cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
         loop [] = return ()
@@ -546,6 +653,7 @@ main' wires = do
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
                 cam = cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac t)
+            --mvp $! mat4ToM44F $! mm .*. cm .*. pm
             mvp $! mat4ToM44F $! cam .*. pm
             mv $! mat4ToM44F $! cam
             proj $! mat4ToM44F $! pm
