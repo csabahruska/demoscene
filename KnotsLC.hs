@@ -32,7 +32,7 @@ import qualified LambdaCube.GL as LC
 
 ---------------------
 
-{-
+
 wires :: IO (Wire Int ExpV1)
 wires = flip evalStateT 0 $ transWire $ WHorizontal ()
     [ WVertical ()
@@ -100,7 +100,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
     env = magnify 2 . tubularNeighbourhood (helix 0.9 (sin time + 1.5)) . tubularNeighbourhood (helix 0.3 0.5 . (+ 0.5 * sin (2 * time))) . tubularNeighbourhood (helix 0.1 (0.5/3) . (+ 0.03 * sin (10 * time)))
     env2 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)
     env3 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . logarithmicSpiral 0.1 0.04)
--}
+
 
 instance Knot.Timed Float where
   time = error "Can't get the time in Float land"
@@ -127,8 +127,8 @@ cameraToMat4 (origin, V3 columnX columnY columnZ) =
 
 ---------------------
 
-wires :: IO (Wire Int ExpV1)
-wires = flip evalStateT 0 $ transWire $ setDuration 100 $ WHorizontal ()
+wiresTest :: IO (Wire Int ExpV1)
+wiresTest = flip evalStateT 0 $ transWire $ setDuration 100 $ WHorizontal ()
   [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
   , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
   , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
