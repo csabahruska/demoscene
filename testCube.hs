@@ -437,6 +437,7 @@ data Event
     = TurnOn Object
     | TurnOff Object
     | RecurrentEvent (Maybe Time){-end-} (Time -> IO ())
+    | SetCam Camera
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
@@ -464,11 +465,12 @@ main' wires = do
                           , scanlinesLow = Const $ V4 0.45 0.5 0.5 1
                           }
 
-        addWire fb (WFadeOut{}) = fb
         addWire fb wire@(Wire1D {..}) = texturing1D wire fb (Fetch (streamName wInfo) Triangles (IV3F "position"))
         addWire fb wire@(Wire2D {..}) = texturing2D wire fb (Fetch (streamName wInfo) Triangles (IV3F "position"))
         addWire fb wire@(WParticle {..}) = texturingParticle wire fb (Fetch (streamName wInfo) Points (IV3F "position"))
-        addWire fb w = foldl addWire fb $ wWires w
+        addWire fb WHorizontal{..} = foldl addWire fb wWires
+        addWire fb WVertical{..} = foldl addWire fb wWires
+        addWire fb _ = fb
 
         frameImage'' = PrjFrameBuffer "" tix0 $ textRender $ texToFB $ imgToTex $ PrjFrameBuffer "" tix0 $ distortFX frameImage'
 
@@ -603,6 +605,9 @@ main' wires = do
                 t' = liftA2 (+) (Just len') t
                 action time = print v >> volume v v
                   where v = realToFrac $ min 1 $ max 0 $ 1 - ((time - ti) / len')
+            WCamera{..} -> return (t', [(ti, SetCam wCamera)])
+              where
+                t' = liftA2 (+) t (realToFrac <$> wDuration)
             w -> do
                 gpuCube <- compileMesh $ case w of
                     Wire1D {..} -> line wXResolution
@@ -628,14 +633,14 @@ main' wires = do
     timeRef <- newIORef =<< getCurrentTime
 
     let
-        camCurve :: Knot.Curve
-        camCurve = Knot.mulSV3 2 . Knot.unKnot :: Knot.Curve
-        --camCurve = Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
-        cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
+        camCurve :: Camera
+        --camCurve = Knot.mulSV3 2 . Knot.unKnot :: Knot.Curve
+        camCurve = CamMat cm -- CamCurve $ Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
+
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
-        loop [] = return ()
---        loop ((Nothing,_):_) = return ()
-        loop schedule = do
+        loop :: Camera -> [(Time, Event)] -> IO ()
+        loop _ [] = return ()
+        loop camCurve schedule = do
             curTime <- getCurrentTime
             satrtTime <- readIORef timeRef
             let t' = realToFrac $ curTime `diffUTCTime` satrtTime
@@ -649,11 +654,15 @@ main' wires = do
                         if (compare' (Just t') end == LT)
                         then action t' >> return [(t', RecurrentEvent end action)]
                         else return []
+                    _ -> return []
             let schedule' = foldr merge [] newEvents `merge` schedule_
+                camCurve' :: Camera
+                camCurve' = maybe camCurve (\(SetCam c) -> c) $ listToMaybe [ SetCam c | (_, SetCam c)<- reverse old]
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
-                cam = cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac t)
-            --mvp $! mat4ToM44F $! mm .*. cm .*. pm
+                cam = case camCurve of
+                    CamCurve camCurve -> cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac t)
+                    CamMat cm -> mm .*. cm
             mvp $! mat4ToM44F $! cam .*. pm
             mv $! mat4ToM44F $! cam
             proj $! mat4ToM44F $! pm
@@ -668,7 +677,7 @@ main' wires = do
             swapBuffers
 
             k <- keyIsPressed KeyEsc
-            unless k $ loop schedule'
+            unless k $ loop camCurve' schedule'
 
     let audioOn = True
     smp <- if audioOn
@@ -683,7 +692,7 @@ main' wires = do
 
     writeIORef timeRef =<< getCurrentTime
 
-    loop schedule
+    loop camCurve schedule
 
     case smp of
       Nothing -> return ()
@@ -715,4 +724,5 @@ mapAccumLM f x (y:ys) = do
     (x'', ys') <- mapAccumLM f x' ys
     return (x'', y':ys')
 
+cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
 

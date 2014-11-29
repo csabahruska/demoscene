@@ -26,6 +26,7 @@ import Knot
 import AD
 import Data.Reify.Graph
 import Data.Vect
+import Utility
 
 import LambdaCube.GL hiding (Exp, Var, Let, V3, V2)
 import qualified LambdaCube.GL as LC
@@ -48,6 +49,10 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 --    wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
+    , WVertical ()
+        [ WCamera (Just 3) $ CamCurve $ magnify 1 . lissajousKnot (V3 3 5 7) (V3 0.7 0.1 0)
+        , WCamera Nothing $ CamMat $ fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
+        ]
     , WVertical ()
         [ setDuration 20 $ WHorizontal ()
             [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
@@ -188,9 +193,18 @@ data Wire i e
         { wInfo :: i
         , wDuration  :: Maybe Float
         }
+    | WCamera
+        { wDuration  :: Maybe Float
+        , wCamera :: Camera
+        }
     -- sprite
     -- color
     -- normal
+
+data Camera
+    = CamCurve Knot.Curve
+    | CamMat Mat4
+
 
 wire1D = Wire1D () Nothing
 
@@ -206,6 +220,7 @@ transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id
 transWire (WHorizontal info ws) = newid >>= \id -> WHorizontal <$> pure id <*> traverse transWire ws
 transWire (WVertical info ws) = newid >>= \id -> WVertical <$> pure id <*> traverse transWire ws
 transWire (WFadeOut info ws) = newid >>= \id -> WFadeOut <$> pure id <*> pure ws
+transWire (WCamera dur ws) = WCamera <$> pure dur <*> pure ws
 
 newid = do
     st <- get
