@@ -16,7 +16,7 @@ Particle Accelerator
 ```
 who do you think
 is going to win
-capitalism?
+capitalism
 ```
 
 ????
@@ -25,16 +25,16 @@ capitalism?
 ```
 what is keeping us
 from embracing
-our brighter future?
+our brighter future
 ```
 
 Lissajous Stalks
 ----------------
 
 ```
-with humans gone,
+with humans gone
 will there be hope
-for machines?
+for machines
 ```
 
 Spiral Ribbon Greetings
@@ -57,7 +57,7 @@ Post-Credits
 ------------
 
 ```
-with machines gone,
+with machines gone
 will there be hope
-for humans?
+for humans
 ```
