@@ -356,6 +356,7 @@ main' wires = do
                           , scanlinesLow = Const $ V4 0.45 0.5 0.5 1
                           }
 
+        addWire fb (WFadeOut{}) = fb
         addWire fb wire@(Wire1D {..}) = texturing1D wire fb (Fetch (streamName wInfo) Triangles (IV2F "position"))
         addWire fb wire@(Wire2D {..}) = texturing2D wire fb (Fetch (streamName wInfo) Triangles (IV2F "position"))
         addWire fb w = foldl addWire fb $ wWires w
@@ -484,6 +485,7 @@ main' wires = do
         addStreams t c = case c of
             WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> acc addStreams t wWires
+            WFadeOut{..} -> return (liftA2 (+) (realToFrac <$> wDuration) t,[])
             w -> do
                 gpuCube <- compileMesh $ case w of
                     Wire1D {..} -> line wXResolution
@@ -513,6 +515,8 @@ main' wires = do
 
     let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
+        loop [] = return ()
+        loop ((Nothing,_):_) = return ()
         loop schedule = do
             curTime <- getCurrentTime
             satrtTime <- readIORef timeRef

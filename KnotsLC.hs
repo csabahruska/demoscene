@@ -49,38 +49,39 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
     , WVertical ()
-        [ setDuration 3 $ WHorizontal ()
+        [ setDuration 20 $ WHorizontal ()
             [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
             , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
                                 (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
             ]
-        , setDuration 3 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal ()
             [ wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
             , wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
             ]
-        , setDuration 3 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal ()
             [ wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
             , wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
             ]
-        , setDuration 3 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal ()
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
             ]
-        , setDuration 3 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal ()
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
             ]
-        , setDuration 3 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal ()
             [ wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
             , wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
             ]
-        , setDuration 3 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal ()
             [ wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
             ]
-        , setDuration 3 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal ()
             [ wire1D 2000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
             ]
+        , WFadeOut () (Just 3)
         ]
 --    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
 --    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
@@ -169,6 +170,10 @@ data Wire i e
         { wInfo :: i
         , wWires :: [Wire i e]
         }
+    | WFadeOut
+        { wInfo :: i
+        , wDuration  :: Maybe Float
+        }
     -- sprite
     -- color
     -- normal
@@ -186,6 +191,7 @@ transWire (Wire1D info d i f) = newid >>= \id -> Wire1D <$> pure id <*> pure d <
 transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun2 "t" "s" v) <*> traverse (lift . transFun2 "t" "s") n <*> traverse (lift . transFun2 "t" "s") c <*> (traverse) (lift . transFun2_ "t" "s") a
 transWire (WHorizontal info ws) = newid >>= \id -> WHorizontal <$> pure id <*> traverse transWire ws
 transWire (WVertical info ws) = newid >>= \id -> WVertical <$> pure id <*> traverse transWire ws
+transWire (WFadeOut info ws) = newid >>= \id -> WFadeOut <$> pure id <*> pure ws
 
 newid = do
     st <- get
