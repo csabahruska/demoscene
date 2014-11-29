@@ -40,14 +40,62 @@ defaultCam = LC.V3 (LC.V3 (scale * 0.75) 0 0) (LC.V3 0 scale 0) (LC.V3 ofsX ofsY
     ofsX = -0.3
     ofsY = 0
 
+greetingNames =
+  [ ""
+  , "s3c"
+  , "archee"
+  , "alvaro"
+  , "shr"
+  , "rrrola"
+  , "a moiré misszió\n  bemutatja"
+  ]
+
 wires :: IO (Wire Int ExpV1)
 wires = flip evalStateT 0 $ transWire $ WHorizontal ()
     [ WVertical ()
         [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
         , wire1D 200 $ mulSV3 1.1 . unKnot
         ]
-    , WText2D () (Just 8) defaultCam "Hello Demoscene"
-
+    , WVertical ()
+      [ WText2D () (Just 2) defaultCam ""
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 6) defaultCam "lambda presents" ]
+        , WVertical () [ WText2D () (Just 8) defaultCam "", WText2D () (Just 8) defaultCam "\nknot theory" ]
+        ]
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "who do you think" ]
+        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nis going to win" ]
+        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\ncapitalism" ]
+        ]
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "what is keeping us" ]
+        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nfrom embracing" ]
+        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nour brighter future" ]
+        ]
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with humans gone" ]
+        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
+        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor machines" ]
+        ]
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "greetings:" ]
+        , WVertical () [ WText2D () (Just 1) defaultCam ("\n  " ++ name) | name <- greetingNames ]
+        ]
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "music:" ]
+        , WVertical () [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  ficture" ]
+        ]
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "code:" ]
+        , WVertical () [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  divip\n  hcs\n  hranolky" ]
+        ]
+      , WHorizontal ()
+        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with machines gone" ]
+        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
+        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor humans" ]
+        ]
+      , WFadeOut () (Just 5)
+      ]
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
@@ -58,9 +106,17 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
     , WVertical ()
-        [ WCamera (Just 10) $ CamCurve $ mulSV3 2 . unKnot
-        , WCamera (Just 10) $ CamCurve $ magnify 1 . lissajousKnot (V3 3 5 7) (V3 0.7 0.1 0)
-        , WCamera Nothing $ CamMat $ fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
+        [
+        ---------
+          WCamera (Just  9) $ CamCurve $ mulSV3 2 . unKnot
+        , WCamera (Just  9) $ CamCurve $ (V3 0 0 2 +) . mulSV3 2 . unKnot
+        , WCamera (Just  8) $ CamCurve $ magnify 0.5 . lissajousKnot (V3 3 2 5) (V3 0.7 0.1 0)
+        , WCamera (Just  5) $ CamMat $ fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
+        , WCamera (Just 10) $ CamCurve $ torusKnot 7 3
+        , WCamera (Just 10) $ CamMat $ fromProjective (lookat (Vec3 0 3 1) (Vec3 0 1 0) (Vec3 0 1 0))
+        , WCamera (Just 10) $ CamMat $ fromProjective (lookat (Vec3 0 0 2) (Vec3 7 0 9) (Vec3 0 1 0))
+        ---------
+        , WCamera Nothing $ CamMat $ fromProjective (lookat (Vec3 5 1 2) (Vec3 3 1 0) (Vec3 0 1 0))
         ]
     , WVertical ()
         [ setDuration 30 $ WHorizontal ()
@@ -98,7 +154,6 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
             ]
 -}
-        , WFadeOut () (Just 5)
         ]
 --    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
 --    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
