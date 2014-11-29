@@ -19,6 +19,7 @@ import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
 import Control.Concurrent
 import Data.Time.Clock
+import Data.IORef
 
 import Sound.ProteaAudio
 
@@ -327,7 +328,7 @@ fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
 streamName :: Int -> BS.ByteString
 streamName = ("stream" <>) . BS.pack . show
 
-type Time = UTCTime
+type Time = Double
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
@@ -479,9 +480,6 @@ main' wires = do
     setWindowSize 1024 768
     texture =<< compileTexture2DRGBAF True False imgPattern
 
-    timenow <- getCurrentTime
-    print $ "time " ++ show timenow
-
     let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Maybe Time, Either Object Object)])
         addStreams t c = case c of
             WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
@@ -492,9 +490,9 @@ main' wires = do
                     Wire2D { wXResolution = i, wYResolution = j } -> grid i j
                 obj <- addMesh renderer (streamName $ wInfo w) gpuCube []
 
-                when (maybe True (> timenow) t) $
+                when (maybe True (> 0) t) $
                     enableObject obj False
-                let t' = liftA2 addUTCTime (realToFrac <$> wDuration w) t
+                let t' = liftA2 (+) (realToFrac <$> wDuration w) t
                 return (t', [(t, Left obj), (t', Right obj)])
 
         merge = mergeBy (compare' `on` fst)
@@ -509,14 +507,17 @@ main' wires = do
             (x'', ys') <- acc f x' ys
             return (x'', y':ys')
 
-    (_end, schedule) <- addStreams (Just timenow) wires
+    (_end, schedule) <- addStreams (Just 0) wires
+
+    timeRef <- newIORef =<< getCurrentTime
 
     let cm  = fromProjective (lookat (Vec3 4 3 3) (Vec3 0 0 0) (Vec3 0 1 0))
         pm  = perspective 0.1 100 (pi/4) (1024 / 768)
         loop schedule = do
-            t <- getTime
---            print t
-            t' <- getCurrentTime
+            curTime <- getCurrentTime
+            satrtTime <- readIORef timeRef
+            let t' = realToFrac $ curTime `diffUTCTime` satrtTime
+            let t = t'
             let (old, schedule') = span (\(x, _) -> compare' x (Just t') == LT) schedule
             forM_ old $ \(i, obj) -> do
                 print t
@@ -546,6 +547,7 @@ main' wires = do
     resetTime
     soundPlay smp 1 1 0 1
 
+    writeIORef timeRef =<< getCurrentTime
     loop schedule
     soundStop smp
 
