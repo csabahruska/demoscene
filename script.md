@@ -19,8 +19,8 @@ is going to win
 capitalism
 ```
 
-????
-----
+From the Outside
+----------------
 
 ```
 what is keeping us
