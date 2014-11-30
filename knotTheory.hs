@@ -457,7 +457,7 @@ main' wires = do
     openWindow $ case args of
       ["-w"] -> dispOptions {displayOptions_displayMode = Window}
       _ -> dispOptions
-    setWindowTitle "Knots by Lambda"
+    setWindowTitle "Knot Theory by Lambda"
 
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
