@@ -444,14 +444,19 @@ data Event
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
     initialize
-    openWindow defaultDisplayOptions
-        { displayOptions_width              = 1280
-        , displayOptions_height             = 720
-        , displayOptions_openGLVersion      = (3,2)
-        , displayOptions_openGLProfile      = CoreProfile
-        , displayOptions_numDepthBits       = 24
-        , displayOptions_displayMode    = Fullscreen
-        }
+
+    let dispOptions = defaultDisplayOptions
+          { displayOptions_width              = 1280
+          , displayOptions_height             = 720
+          , displayOptions_openGLVersion      = (3,2)
+          , displayOptions_openGLProfile      = CoreProfile
+          , displayOptions_numDepthBits       = 24
+          , displayOptions_displayMode    = Fullscreen
+          }
+    args <- getArgs
+    openWindow $ case args of
+      ["-w"] -> dispOptions {displayOptions_displayMode = Window}
+      _ -> dispOptions
     setWindowTitle "Knots by Lambda"
 
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
@@ -510,10 +515,7 @@ main' wires = do
       swapBuffers
 
     -- main scene
-    args <- getArgs
-    let fname = case args of
-          [] -> "textures/rusty_metal.jpg"
-          (n:_) -> n
+    let fname = "textures/rusty_metal.jpg"
     Right imgPattern <- loadImage fname
     Right imgParticle <- loadImage "textures/particle.png"
 
