@@ -50,6 +50,18 @@ import Math.Noise.Modules.Billow
 import Data.Maybe
 import Data.Bitmap.Pure
 
+#ifdef CAPTURE
+import Graphics.Rendering.OpenGL.Raw.Core32
+import Codec.Image.DevIL
+import Text.Printf
+import Foreign
+
+withFrameBuffer :: Int -> Int -> Int -> Int -> (Ptr Word8 -> IO ()) -> IO ()
+withFrameBuffer x y w h fn = allocaBytes (w*h*4) $ \p -> do
+    glReadPixels (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h) gl_RGBA gl_UNSIGNED_BYTE $ castPtr p
+    fn p
+#endif
+
 renderTextureSize = 1024
 
 distortFX :: Exp Obj (Image 1 V4F) -> Exp Obj (FrameBuffer 1 V4F)
@@ -443,6 +455,9 @@ data Event
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
+#ifdef CAPTURE
+    ilInit
+#endif
     initialize
 
     let dispOptions = defaultDisplayOptions
@@ -668,7 +683,7 @@ main' wires = do
 
     (_end, schedule) <- addStreams (Just 0) wires
 
-    timeRef <- newIORef =<< getCurrentTime
+    --timeRef <- newIORef =<< getCurrentTime
 
     let
         camCurve :: Camera
@@ -676,12 +691,13 @@ main' wires = do
         camCurve = CamMat cm -- CamCurve $ Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
 
         pm  = perspective 0.1 100 (pi/4) (1280 / 720)
-        loop :: Camera -> [(Time, Event)] -> IO ()
-        loop _ [] = return ()
-        loop camCurve schedule = do
-            curTime <- getCurrentTime
-            satrtTime <- readIORef timeRef
-            let t' = realToFrac $ curTime `diffUTCTime` satrtTime
+        loop :: Camera -> [(Time, Event)] -> Int -> IO ()
+        loop _ [] _ = return ()
+        loop camCurve schedule frameCount = do
+            --curTime <- getCurrentTime
+            --satrtTime <- readIORef timeRef
+            --let t' = realToFrac $ curTime `diffUTCTime` satrtTime
+            let t' = fromIntegral frameCount / 60
             let t = t'
             let (old, schedule_) = span (\(x, _) -> compare x t' == LT) schedule
             newEvents <- forM old $ \(i, event) -> do
@@ -712,10 +728,14 @@ main' wires = do
             uniformFloat "down" uniformMap $ s
             uniformFloat "up" uniformMap $ (s+0.01)
             render renderer
+#ifdef CAPTURE
+            glFinish
+            withFrameBuffer 0 0 1280 720 $ writeImageFromPtr (printf "capture/frame%08d.jpg" frameCount) (720, 1280)
+#endif
             swapBuffers
 
             k <- keyIsPressed KeyEsc
-            unless k $ loop camCurve' schedule'
+            unless k $ loop camCurve' schedule' (frameCount + 1)
 
     let audioOn = True
     smp <- if audioOn
@@ -728,9 +748,9 @@ main' wires = do
 
 --    resetTime
 
-    writeIORef timeRef =<< getCurrentTime
+    --writeIORef timeRef =<< getCurrentTime
 
-    loop camCurve schedule
+    loop camCurve schedule 1
 
     case smp of
       Nothing -> return ()
