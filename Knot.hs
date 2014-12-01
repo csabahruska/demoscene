@@ -305,5 +305,30 @@ samplePatch n m patch =
     | t <- [0..n]
     , u <- [0..m] ]
 
+------------------------------- Hopf fibration
+
+hopf :: Floating a => V3 a -> V3 a
+hopf = hopfProj . hopfConstruction
+
+hopfConstruction :: Floating a => V3 a -> (a, a, a, a)
+hopfConstruction (V3 k1 k2 eta) =
+    ( cos (k1 + k2) * sin eta
+    , sin (k1 + k2) * sin eta
+    , cos (k1 - k2) * cos eta
+    , sin (k1 - k2) * cos eta
+    )
+
+hopfProj :: Num a => (a, a, a, a) -> V3 a
+hopfProj (z0r, z0c, z1r, z1c) = V3 p0r p0c p1
+  where
+    z0 = (z0r, z0c)
+    z1 = (z1r, z1c)
+    ((p0r, p0c), p1) = (2 *. (z0 .*. conj z1), fst (z0 .*. conj z0) - fst (z1 .*. conj z1))
+    conj (r, c) = (r, -c)
+    (r1, c1) .*. (r2, c2) = (r1*r2 - c1*c2, r1*c2 + r2*c1)
+    t *. (r, c) = (t*r, t*c)
+
+
+
 
 
