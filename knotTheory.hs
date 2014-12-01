@@ -444,21 +444,12 @@ data Event
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
     GLFW.init
-{-
-    let dispOptions = defaultDisplayOptions
-          { displayOptions_width              = 1280
-          , displayOptions_height             = 720
-          , displayOptions_openGLVersion      = (3,2)
-          , displayOptions_openGLProfile      = CoreProfile
---          , displayOptions_numDepthBits       = 24
-          , displayOptions_displayMode    = Fullscreen
-          }
 
     args <- getArgs
-    case args of
-      ["-w"] -> dispOptions {displayOptions_displayMode = Window}
-      _ -> dispOptions
--}
+    monitor <- case args of
+      ["-w"] -> return Nothing
+      _ -> getPrimaryMonitor
+
     GLFW.defaultWindowHints
     mapM_ windowHint
       [ WindowHint'ContextVersionMajor 3
@@ -466,7 +457,8 @@ main' wires = do
       , WindowHint'OpenGLProfile OpenGLProfile'Core
       , WindowHint'OpenGLForwardCompat True
       ]
-    Just win <- GLFW.createWindow 1280 720 "Knot Theory by Lambda" Nothing Nothing
+    Just win <- GLFW.createWindow 1280 720 "Knot Theory by Lambda" monitor Nothing
+    setCursorInputMode win CursorInputMode'Disabled
     makeContextCurrent $ Just win
 
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
