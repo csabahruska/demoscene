@@ -105,7 +105,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 --    wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
-{-
+
     , WVertical ()
         [
         ---------
@@ -119,13 +119,11 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
         ---------
         , WCamera Nothing $ CamMat $ fromProjective (lookat (Vec3 5 1 2) (Vec3 3 1 0) (Vec3 0 1 0))
         ]
--}
-    , WVertical ()
 
-        [ setDuration 30 $ WHorizontal ()
-            [ wParticle 40 40 1 id Nothing -- (magnify 100 . hopf . magnify (2*pi)) (Just $ const $ V3 1 1 1)
-            ]
-{-
+
+    , wParticle 10 10 10 (magnify 20 . hopf . translateY 0.1 . rotateYZ 0.1 . translateX 0.1 . rotateXZ 3 . magnify (2*pi)) Nothing
+
+    , WVertical ()
         [ setDuration 30 $ WHorizontal ()
             [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
             , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
@@ -147,7 +145,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
             ]
--}
+
 {-
         , setDuration 10 $ WHorizontal ()
             [ wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
