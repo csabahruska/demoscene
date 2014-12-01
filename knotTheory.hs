@@ -442,6 +442,7 @@ data Event
     | TurnOff Object
     | RecurrentEvent (Maybe Time){-end-} (Time -> IO ())
     | SetCam Camera
+    | ExitEvent
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
@@ -612,7 +613,7 @@ main' wires = do
         addStreams t@(Just ti) c = case c of
             WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
-            WFadeOut{wDuration = Just len} -> return (t', [(ti, RecurrentEvent t' action)])
+            WFadeOut{wDuration = Just len} -> return (t', [(ti, RecurrentEvent t' action)] ++ [(t, ExitEvent) | t <- maybeToList t'])
               where
                 len' = realToFrac len
                 t' = liftA2 (+) (Just len') t
@@ -682,7 +683,6 @@ main' wires = do
 
         pm  = perspective 0.1 100 (pi/4) (1280 / 720)
         loop :: Camera -> [(Time, Event)] -> IO ()
-        loop _ [] = return ()
         loop camCurve schedule = do
             curTime <- getCurrentTime
             satrtTime <- readIORef timeRef
@@ -721,7 +721,7 @@ main' wires = do
             pollEvents
 
             k <- GLFW.getKey win Key'Escape
-            unless (k == KeyState'Pressed) $ loop camCurve' schedule'
+            unless (k == KeyState'Pressed || or [True | (_, ExitEvent) <- old]) $ loop camCurve' schedule'
 
     let audioOn = True
     smp <- if audioOn
