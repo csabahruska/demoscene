@@ -469,8 +469,7 @@ main' wires = do
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
 
-        frameImage' = case wires of
-            WHorizontal {..} -> PrjFrameBuffer "" tix0 $ foldl addWire emptyFB wWires
+        frameImage' = PrjFrameBuffer "" tix0 $ addWire emptyFB wires
 
         frameImage :: Exp Obj (Image 1 V4F)
         frameImage = renderScreen $ (FragmentOut.(:.ZT).fxVignette vignette frameImage')
