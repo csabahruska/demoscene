@@ -443,21 +443,31 @@ data Event
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
-    initialize
-
+    GLFW.init
+{-
     let dispOptions = defaultDisplayOptions
           { displayOptions_width              = 1280
           , displayOptions_height             = 720
           , displayOptions_openGLVersion      = (3,2)
           , displayOptions_openGLProfile      = CoreProfile
-          , displayOptions_numDepthBits       = 24
+--          , displayOptions_numDepthBits       = 24
           , displayOptions_displayMode    = Fullscreen
           }
+
     args <- getArgs
-    openWindow $ case args of
+    case args of
       ["-w"] -> dispOptions {displayOptions_displayMode = Window}
       _ -> dispOptions
-    setWindowTitle "Knot Theory by Lambda"
+-}
+    GLFW.defaultWindowHints
+    mapM_ windowHint
+      [ WindowHint'ContextVersionMajor 3
+      , WindowHint'ContextVersionMinor 3
+      , WindowHint'OpenGLProfile OpenGLProfile'Core
+      , WindowHint'OpenGLForwardCompat True
+      ]
+    Just win <- GLFW.createWindow 1280 720 "Knot Theory by Lambda" Nothing Nothing
+    makeContextCurrent $ Just win
 
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
@@ -512,7 +522,7 @@ main' wires = do
       uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (720 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
 
       render loadingRenderer
-      swapBuffers
+      GLFW.swapBuffers win
 
     -- main scene
     let fname = "textures/rusty_metal.jpg"
@@ -712,10 +722,11 @@ main' wires = do
             uniformFloat "down" uniformMap $ s
             uniformFloat "up" uniformMap $ (s+0.01)
             render renderer
-            swapBuffers
+            GLFW.swapBuffers win
+            pollEvents
 
-            k <- keyIsPressed KeyEsc
-            unless k $ loop camCurve' schedule'
+            k <- GLFW.getKey win Key'Escape
+            unless (k == KeyState'Pressed) $ loop camCurve' schedule'
 
     let audioOn = True
     smp <- if audioOn
@@ -739,7 +750,9 @@ main' wires = do
         soundStopAll
 
     dispose renderer
-    closeWindow
+
+    GLFW.destroyWindow win
+    GLFW.terminate
 --    soundStopAll
 
 --    let waitAudio = do
