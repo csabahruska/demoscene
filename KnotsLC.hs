@@ -51,50 +51,50 @@ greetingNames =
   ]
 
 wires :: IO (Wire Int ExpV1)
-wires = flip evalStateT 0 $ transWire $ WHorizontal ()
-    [ WVertical ()
+wires = flip evalStateT 0 $ transWire $ WHorizontal
+    [ WVertical
         [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
         , wire1D 200 $ mulSV3 1.1 . unKnot
         ]
-    , WVertical ()
+    , WVertical
       [ WText2D () (Just 2) defaultCam ""
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 6) defaultCam "lambda presents" ]
-        , WVertical () [ WText2D () (Just 8) defaultCam "", WText2D () (Just 8) defaultCam "\nknot theory" ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 6) defaultCam "lambda presents" ]
+        , WVertical [ WText2D () (Just 8) defaultCam "", WText2D () (Just 8) defaultCam "\nknot theory" ]
         ]
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "who do you think" ]
-        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nis going to win" ]
-        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\ncapitalism" ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "who do you think" ]
+        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nis going to win" ]
+        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\ncapitalism" ]
         ]
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "what is keeping us" ]
-        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nfrom embracing" ]
-        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nour brighter future" ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "what is keeping us" ]
+        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nfrom embracing" ]
+        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nour brighter future" ]
         ]
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with humans gone" ]
-        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
-        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor machines" ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with humans gone" ]
+        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
+        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor machines" ]
         ]
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "greetings:" ]
-        , WVertical () [ WText2D () (Just 1) defaultCam ("\n  " ++ name) | name <- greetingNames ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "greetings:" ]
+        , WVertical [ WText2D () (Just 1) defaultCam ("\n  " ++ name) | name <- greetingNames ]
         ]
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "music:" ]
-        , WVertical () [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  ficture" ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "music:" ]
+        , WVertical [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  ficture" ]
         ]
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "code:" ]
-        , WVertical () [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  divip\n  hcs\n  hranolky" ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "code:" ]
+        , WVertical [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  divip\n  hcs\n  hranolky" ]
         ]
-      , WHorizontal ()
-        [ WVertical () [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with machines gone" ]
-        , WVertical () [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
-        , WVertical () [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor humans" ]
+      , WHorizontal
+        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with machines gone" ]
+        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
+        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor humans" ]
         ]
-      , WFadeOut () (Just 5)
+      , WFadeOut (Just 5)
       ]
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
     , (wire2DNormAlpha True 2000 3 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
@@ -106,7 +106,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
 --    wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
 
-    , WVertical ()
+    , WVertical
         [
         ---------
           WCamera (Just  9) $ CamCurve $ mulSV3 2 . unKnot
@@ -123,39 +123,39 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 
     , wParticle 10 10 10 (magnify 20 . hopf . translateY 0.1 . rotateYZ 0.1 . translateX 0.1 . rotateXZ 3 . magnify (2*pi)) Nothing
 
-    , WVertical ()
-        [ setDuration 30 $ WHorizontal ()
+    , WVertical
+        [ setDuration 30 $ WHorizontal
             [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
             , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
                                 (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
             ]
-        , setDuration 10 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal
             [ wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
             , wire2DNorm False 1000 10 $ env2 . cylinderZ 0.08 . (70*)
             ]
-        , setDuration 10 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal
             [ wire2DNorm False 1000 10 $ env3 . cylinderZ 0.08 . (60*)
             , wire2DNorm True 1000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
             ]
-        , setDuration 10 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
             ]
-        , setDuration 10 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
             ]
 
 {-
-        , setDuration 10 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal
             [ wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
             , wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
             ]
-        , setDuration 10 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal
             [ wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
             ]
 
-        , setDuration 10 $ WHorizontal ()
+        , setDuration 10 $ WHorizontal
             [ wire1D 1000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
             ]
@@ -207,7 +207,7 @@ cameraToMat4 (origin, V3 columnX columnY columnZ) =
 ---------------------
 
 wiresTest :: IO (Wire Int ExpV1)
-wiresTest = flip evalStateT 0 $ transWire $ setDuration 100 $ WHorizontal ()
+wiresTest = flip evalStateT 0 $ transWire $ setDuration 100 $ WHorizontal
   [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
   , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
   , (wire2DNormAlpha True 1000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
@@ -215,7 +215,7 @@ wiresTest = flip evalStateT 0 $ transWire $ setDuration 100 $ WHorizontal ()
 
 tt = 300
 
-setDuration d (WHorizontal i ws) = WHorizontal i $ [w { wDuration = Just d } | w <- ws]
+setDuration d (WHorizontal ws) = WHorizontal $ [w { wDuration = Just d } | w <- ws]
 
 ---------------------
 
@@ -254,16 +254,13 @@ data Wire i e
         , wAlpha     :: Maybe (V3 e -> e)
         }
     | WHorizontal
-        { wInfo :: i
-        , wWires :: [Wire i e]
+        { wWires :: [Wire i e]
         }
     | WVertical
-        { wInfo :: i
-        , wWires :: [Wire i e]
+        { wWires :: [Wire i e]
         }
     | WFadeOut
-        { wInfo :: i
-        , wDuration  :: Maybe Float
+        { wDuration  :: Maybe Float
         }
     | WCamera
         { wDuration  :: Maybe Float
@@ -301,9 +298,9 @@ transWire :: Wire () Exp -> StateT Int IO (Wire Int ExpV1)
 transWire (Wire1D info d i f) = newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> (lift . transFun3 "t" "s" "k") f
 transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
 transWire (WParticle info d sc i j k v n c a) = newid >>= \id -> WParticle <$> pure id <*> pure d <*> pure sc <*> pure i <*> pure j <*> pure k <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
-transWire (WHorizontal info ws) = newid >>= \id -> WHorizontal <$> pure id <*> traverse transWire ws
-transWire (WVertical info ws) = newid >>= \id -> WVertical <$> pure id <*> traverse transWire ws
-transWire (WFadeOut info ws) = newid >>= \id -> WFadeOut <$> pure id <*> pure ws
+transWire (WHorizontal ws) = WHorizontal <$> traverse transWire ws
+transWire (WVertical ws) = WVertical <$> traverse transWire ws
+transWire (WFadeOut ws) = WFadeOut <$> pure ws
 transWire (WCamera dur ws) = WCamera <$> pure dur <*> pure ws
 transWire (WText2D info dur ws txt) = newid >>= \id -> WText2D <$> pure id <*> pure dur <*> pure ws <*> pure txt
 
