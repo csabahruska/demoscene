@@ -183,14 +183,14 @@ texturing2D wire@(Wire2D {..})
                 v4 = modelViewProj @*. ps
                 pos = modelView @*. ps
                 ps = pack' $ V4 fx fy fz (Const 1)
-                Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
-                alpha = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
-                color = case fcolor $ Knot.V2 x y of Knot.V3 r g b -> pack' $ V3 r g b
+                Knot.V3 fx fy fz = wVertex $ Knot.V3 x y z
+                alpha = maybe (Const 1) (\trp -> trp $ Knot.V3 x y z) wAlpha
+                color = case fcolor $ Knot.V3 x y z of Knot.V3 r g b -> pack' $ V3 r g b
                 ns_ = case wNormal of
                     Nothing -> Const zero' --undefined
                     Just fn -> pack' $ V3 nx ny nz
                       where
-                        Knot.V3 nx ny nz = fn $ Knot.V2 x y
+                        Knot.V3 nx ny nz = fn $ Knot.V3 x y z
 
                 V3 x y z = unpack' uv
 
@@ -220,13 +220,13 @@ texturing2D wire@(Wire2D {..})
                     Wire2D {..} -> (modelViewProj @*. ps, ns_, modelView @*. ps, transparency)
                       where
                         ps = pack' $ V4 fx fy fz (Const 1)
-                        Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
-                        transparency = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
+                        Knot.V3 fx fy fz = wVertex $ Knot.V3 x y z
+                        transparency = maybe (Const 1) (\trp -> trp $ Knot.V3 x y z) wAlpha
                         ns_ = case wNormal of
                             Nothing -> Const zero' --undefined
                             Just fn -> pack' $ V3 nx ny nz
                               where
-                                Knot.V3 nx ny nz = fn $ Knot.V2 x y
+                                Knot.V3 nx ny nz = fn $ Knot.V3 x y z
 
                 V3 x y z = unpack' uv
 
@@ -270,14 +270,14 @@ texturingParticle wire@(WParticle {..})
                 v4 = modelViewProj @*. ps
                 pos = modelView @*. ps
                 ps = pack' $ V4 fx fy fz (Const 1)
-                Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
-                alpha = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
-                color = case fcolor $ Knot.V2 x y of Knot.V3 r g b -> pack' $ V3 r g b
+                Knot.V3 fx fy fz = wVertex $ Knot.V3 x y z
+                alpha = maybe (Const 1) (\trp -> trp $ Knot.V3 x y z) wAlpha
+                color = case fcolor $ Knot.V3 x y z of Knot.V3 r g b -> pack' $ V3 r g b
                 ns_ = case wNormal of
                     Nothing -> Const zero' --undefined
                     Just fn -> pack' $ V3 nx ny nz
                       where
-                        Knot.V3 nx ny nz = fn $ Knot.V2 x y
+                        Knot.V3 nx ny nz = fn $ Knot.V3 x y z
 
                 V3 x y z = unpack' uv
 
@@ -301,19 +301,19 @@ texturingParticle wire@(WParticle {..})
         _ ->  VertFrag vertexShader fragmentShader
           where
             vertexShader :: Exp V (V3F) -> VertexOut () (V3F, V3F, V4F, Float)
-            vertexShader uv = VertexOut v4 (Const 1) ZT (Smooth uv :. Smooth ns :. Smooth pos :. Flat alpha :. ZT)
+            vertexShader uv = VertexOut v4 (Const 20) ZT (Smooth uv :. Smooth ns :. Smooth pos :. Flat alpha :. ZT)
               where
                 (v4, ns, pos, alpha) = case wire of
                     WParticle {..} -> (modelViewProj @*. ps, ns_, modelView @*. ps, transparency)
                       where
                         ps = pack' $ V4 fx fy fz (Const 1)
-                        Knot.V3 fx fy fz = wVertex $ Knot.V2 x y
-                        transparency = maybe (Const 1) (\trp -> trp $ Knot.V2 x y) wAlpha
+                        Knot.V3 fx fy fz = wVertex $ Knot.V3 x y z
+                        transparency = maybe (Const 1) (\trp -> trp $ Knot.V3 x y z) wAlpha
                         ns_ = case wNormal of
                             Nothing -> Const zero' --undefined
                             Just fn -> pack' $ V3 nx ny nz
                               where
-                                Knot.V3 nx ny nz = fn $ Knot.V2 x y
+                                Knot.V3 nx ny nz = fn $ Knot.V3 x y z
 
                 V3 x y z = unpack' uv
 
@@ -321,7 +321,7 @@ texturingParticle wire@(WParticle {..})
             fragmentShader (untup4 -> (uv', ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
               where
                 uv = v3v2 uv'
-                tex = {-imgToTex textImg -} TextureSlot "ParticleTexture" $ Texture2D (Float RGBA) n1
+                tex = {-imgToTex textImg -} TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
                 clr = color tex pointCoord'
 
                 pos = v4v3 pos'

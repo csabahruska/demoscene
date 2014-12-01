@@ -118,7 +118,13 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
         ---------
         , WCamera Nothing $ CamMat $ fromProjective (lookat (Vec3 5 1 2) (Vec3 3 1 0) (Vec3 0 1 0))
         ]
+
     , WVertical ()
+{-
+        [ setDuration 30 $ WHorizontal ()
+            [ wParticle 40 40 1 id Nothing -- (magnify 100 . hopf . magnify (2*pi)) (Just $ const $ V3 1 1 1)
+            ]
+-}
         [ setDuration 30 $ WHorizontal ()
             [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
             , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
@@ -140,6 +146,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
             ]
+
 {-
         , setDuration 10 $ WHorizontal ()
             [ wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
@@ -164,6 +171,7 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
 --        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . rotateYZ (- pi / 4) . magnify (8 * pi) . translateX (-2) . magnifyZ 0.1 .
 --        magnify 100 . projectionZ . magnify 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) .
 --        planeZY
+
     , wire2DNormAlpha False 500 10 (tubularPatch (mulSV3 3 . lissajousKnot (V3 3 4 7) (V3 0.1 0.7 0.0)) (mulSV3 0.1 . unKnot))
                 (Just $ const $ V3 1 1 1) (Just $ const $ 0.5)
 --    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (Just $ sin . normV2)
@@ -229,10 +237,10 @@ data Wire i e
         , wSimpleColor  :: Bool
         , wXResolution :: Int
         , wYResolution :: Int
-        , wVertex    :: V2 e -> V3 e
-        , wNormal    :: Maybe (V2 e -> V3 e)
-        , wColor     :: Maybe (V2 e -> V3 e)
-        , wAlpha     :: Maybe (V2 e -> e)
+        , wVertex    :: V3 e -> V3 e
+        , wNormal    :: Maybe (V3 e -> V3 e)
+        , wColor     :: Maybe (V3 e -> V3 e)
+        , wAlpha     :: Maybe (V3 e -> e)
         }
     | WParticle
         { wInfo :: i
@@ -241,10 +249,10 @@ data Wire i e
         , wXResolution :: Int
         , wYResolution :: Int
         , wZResolution :: Int
-        , wVertex    :: V2 e -> V3 e
-        , wNormal    :: Maybe (V2 e -> V3 e)
-        , wColor     :: Maybe (V2 e -> V3 e)
-        , wAlpha     :: Maybe (V2 e -> e)
+        , wVertex    :: V3 e -> V3 e
+        , wNormal    :: Maybe (V3 e -> V3 e)
+        , wColor     :: Maybe (V3 e -> V3 e)
+        , wAlpha     :: Maybe (V3 e -> e)
         }
     | WHorizontal
         { wInfo :: i
@@ -280,14 +288,19 @@ data Camera
 wire1D = Wire1D () Nothing
 
 wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire () Exp
-wire2DNorm t i j v = Wire2D () Nothing t False i j v (Just $ normalPatch v) Nothing Nothing
+wire2DNorm t i j v = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) Nothing Nothing
+
+wParticle i j k v c = WParticle () Nothing False i j k v Nothing c Nothing
 
 wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire () Exp
-wire2DNormAlpha t i j v c a = Wire2D () Nothing t False i j v (Just $ normalPatch v) c a
+wire2DNormAlpha t i j v c a = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) (to2 <$> c) (to2 <$> a)
+
+to2 f (V3 x y z) = f (V2 x y)
 
 transWire :: Wire () Exp -> StateT Int IO (Wire Int ExpV1)
 transWire (Wire1D info d i f) = newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> lift (transFun "t" f)
-transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun2 "t" "s" v) <*> traverse (lift . transFun2 "t" "s") n <*> traverse (lift . transFun2 "t" "s") c <*> (traverse) (lift . transFun2_ "t" "s") a
+transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
+transWire (WParticle info d sc i j k v n c a) = newid >>= \id -> WParticle <$> pure id <*> pure d <*> pure sc <*> pure i <*> pure j <*> pure k <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
 transWire (WHorizontal info ws) = newid >>= \id -> WHorizontal <$> pure id <*> traverse transWire ws
 transWire (WVertical info ws) = newid >>= \id -> WVertical <$> pure id <*> traverse transWire ws
 transWire (WFadeOut info ws) = newid >>= \id -> WFadeOut <$> pure id <*> pure ws
@@ -307,6 +320,12 @@ transFun2_ s1 s2 = fmap (fmap runIdentity) . transFun2 s1 s2 . fmap Identity
 
 transFun2 :: Traversable f => String -> String -> (V2 Exp -> f Exp) -> IO (V2 ExpV1 -> f ExpV1)
 transFun2 s1 s2 f = fmap (\e (V2 t1 t2) -> fmap ($ M.fromList [(s1,t1), (s2,t2)]) e) . traverse transExp $ f $ V2 (Var s1) (Var s2)
+
+transFun3_ :: String -> String -> String -> (V3 Exp -> Exp) -> IO (V3 ExpV1 -> ExpV1)
+transFun3_ s1 s2 s3 = fmap (fmap runIdentity) . transFun3 s1 s2 s3 . fmap Identity
+
+transFun3 :: Traversable f => String -> String -> String -> (V3 Exp -> f Exp) -> IO (V3 ExpV1 -> f ExpV1)
+transFun3 s1 s2 s3 f = fmap (\e (V3 t1 t2 t3) -> fmap ($ M.fromList [(s1,t1), (s2,t2), (s3, t3)]) e) . traverse transExp $ f $ V3 (Var s1) (Var s2) (Var s3)
 
 type ST = IM.IntMap (Either (Exp_ Unique) (LC.Exp V Float))
 
