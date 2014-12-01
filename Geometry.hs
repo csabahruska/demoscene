@@ -60,18 +60,15 @@ grid w' h' d' = Mesh
     dz = 1 / (fromIntegral d-1)
 
 pointGrid3D :: Int -> Int -> Int -> Mesh
-pointGrid3D w' h' d' = Mesh
-    { mAttributes = T.singleton "position" $ A_V3F $ V.fromList [V3 x y z | z <- map (dz*) [0..fromIntegral d-1], y <- map (dy*) [0..fromIntegral h-1], x <- map (dx*) [0..fromIntegral w-1]]
+pointGrid3D w h d = Mesh
+    { mAttributes = T.singleton "position" $ A_V3F $ V.fromList [V3 x y z | z <- map ((dz*).fromIntegral) [0..d-1], y <- map ((dy*).fromIntegral) [0..h-1], x <- map ((dx*).fromIntegral) [0..w-1]]
     , mPrimitive = P_Points
     , mGPUData = Nothing
     }
   where
-    w = fromIntegral w'
-    h = fromIntegral h'
-    d = fromIntegral d'
-    dx = 1 / (fromIntegral w-1)
-    dy = 1 / (fromIntegral h-1)
-    dz = 1 / (fromIntegral d-1)
+    dx = 1 / max 1 (fromIntegral w-1)
+    dy = 1 / max 1 (fromIntegral h-1)
+    dz = 1 / max 1 (fromIntegral d-1)
 
 line :: Int -> Mesh
 line w' = Mesh

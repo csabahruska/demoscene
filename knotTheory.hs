@@ -318,11 +318,13 @@ texturingParticle wire@(WParticle {..})
                 V3 x y z = unpack' uv
 
             fragmentShader :: Exp F (V3F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-            fragmentShader (untup4 -> (uv', ns, pos', alpha)) = FragmentOutRastDepth $ c' :. ZT
+            fragmentShader (untup4 -> (uv', ns, pos', alpha)) = FragmentOutRastDepth $ {-c'-}tstcolor :. ZT
               where
                 uv = v3v2 uv'
-                tex = {-imgToTex textImg -} TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
+                tex = {-imgToTex textImg -} TextureSlot "ParticleTexture" $ Texture2D (Float RGBA) n1
                 clr = color tex pointCoord'
+                V2 cu cv = unpack' pointCoord'
+                tstcolor = clr--pack' $ V4 cu cv (floatF 0) (floatF 1)
 
                 pos = v4v3 pos'
                 pointlight = v3FF $ V3 1 1 1
@@ -602,7 +604,7 @@ main' wires = do
 
     setWindowSize 1280 720
     texture =<< compileTexture2DRGBAF True False imgPattern
-    uniformFTexture2D "ParticleTexture" uniformMap =<< compileTexture2DRGBAF True False imgParticle
+    uniformFTexture2D "ParticleTexture" uniforms =<< compileTexture2DRGBAF True False imgParticle
     uniformFloat "brightness" uniformMap 1
 
     let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Time, Event)])
