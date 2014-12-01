@@ -122,6 +122,10 @@ data Wire i e
     | WDelay
         { wDuration  :: Maybe Float
         }
+    | WSound
+        { wDuration  :: Maybe Float
+        , wSample :: FilePath
+        }
     -- sprite
     -- color
     -- normal
@@ -129,6 +133,10 @@ data Wire i e
 data Camera
     = CamCurve Knot.Curve
     | CamMat Mat4
+
+flattenWire (WHorizontal w) = concatMap flattenWire w
+flattenWire (WVertical w) = concatMap flattenWire w
+flattenWire w = [w]
 
 
 wire1D i f = Wire1D () Nothing i (to1 f)
@@ -154,6 +162,7 @@ transWire (WFadeOut ws) = WFadeOut <$> pure ws
 transWire (WDelay t) = WDelay <$> pure t
 transWire (WCamera dur ws) = WCamera <$> pure dur <*> pure ws
 transWire (WText2D info dur ws txt) = newid >>= \id -> WText2D <$> pure id <*> pure dur <*> pure ws <*> pure txt
+transWire (WSound a b) = pure $ WSound a b
 
 newid = do
     st <- get

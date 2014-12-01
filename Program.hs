@@ -19,7 +19,8 @@ import qualified LambdaCube.GL as LC
 
 wires :: IO (Wire Int ExpV1)
 wires = program $ WHorizontal
-    [ WVertical
+    [ WSound Nothing "music/Take_Them.ogg"
+    , WVertical
         [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
         , wire1D 200 $ mulSV3 1.1 . unKnot
         ]

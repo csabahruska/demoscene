@@ -444,6 +444,8 @@ data Event
     | RecurrentEvent (Maybe Time){-end-} (Time -> IO ())
     | SetCam Camera
     | ExitEvent
+    | PlaySound Sample
+    | StopSound Sample
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
@@ -608,19 +610,27 @@ main' wires = do
     uniformFTexture2D "ParticleTexture" uniforms =<< compileTexture2DRGBAF True False imgParticle
     uniformFloat "brightness" uniformMap 1
 
+    let audioOn = or [True | WSound{} <- flattenWire wires]
+    when audioOn $ void $ initAudio 2 44100 1024
+
     let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Time, Event)])
         addStreams Nothing _ = return (Nothing, [])
         addStreams t@(Just ti) c = case c of
             WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
             WDelay{..} -> return (liftA2 (+) (realToFrac <$> wDuration) t, [])
+            WSound{..} -> do
+                smp <- sampleFromFile "music/Take_Them.ogg" 1
+                return (t', [(ti, PlaySound smp)] ++ [(t, StopSound smp) | t <- maybeToList t'])
+              where
+                t' = liftA2 (+) t (realToFrac <$> wDuration)
             WFadeOut{wDuration = Just len} -> return (t', [(ti, RecurrentEvent t' action)] ++ [(t, ExitEvent) | t <- maybeToList t'])
               where
                 len' = realToFrac len
                 t' = liftA2 (+) (Just len') t
                 action time = do
                     print v
-                    volume v v
+                    when audioOn $ volume v v
                     uniformFloat "brightness" uniformMap v
                   where v = realToFrac $ min 1 $ max 0 $ 1 - ((time - ti) / len')
             WCamera{..} -> return (t', [(ti, SetCam wCamera)])
@@ -689,8 +699,9 @@ main' wires = do
             satrtTime <- readIORef timeRef
             let t' = realToFrac $ curTime `diffUTCTime` satrtTime
             let t = t'
-            let (old, schedule_) = span (\(x, _) -> compare x t' == LT) schedule
-            newEvents <- forM old $ \(i, event) -> do
+            let (old_, schedule_) = span (\(x, _) -> compare x t' == LT) schedule
+                old = map snd old_
+            newEvents <- forM old $ \event -> do
                 case event of
                     TurnOn obj -> enableObject obj True >> return []
                     TurnOff obj -> enableObject obj False >> return []
@@ -701,12 +712,15 @@ main' wires = do
                     _ -> return []
             let schedule' = foldr merge [] newEvents `merge` schedule_
                 camCurve' :: Camera
-                camCurve' = maybe camCurve (\(SetCam c) -> c) $ listToMaybe [ SetCam c | (_, SetCam c)<- reverse old]
+                camCurve' = maybe camCurve (\(SetCam c) -> c) $ listToMaybe [ SetCam c | SetCam c <- reverse old]
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
                 cam = case camCurve of
                     CamCurve camCurve -> cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac t)
                     CamMat cm -> mm .*. cm
+            sequence_ [soundStop smp | StopSound smp <- old]
+            sequence_ [soundPlay smp 1 1 0 1 | PlaySound smp <- old]
+
             mvp $! mat4ToM44F $! cam .*. pm
             mv $! mat4ToM44F $! cam
             proj $! mat4ToM44F $! pm
@@ -722,28 +736,13 @@ main' wires = do
             pollEvents
 
             k <- GLFW.getKey win Key'Escape
-            unless (k == KeyState'Pressed || or [True | (_, ExitEvent) <- old]) $ loop camCurve' schedule'
-
-    let audioOn = True
-    smp <- if audioOn
-      then do
-        initAudio 2 44100 1024
-        smp <- sampleFromFile "music/Take_Them.ogg" 1
-        soundPlay smp 1 1 0 1
-        return $ Just smp
-      else return Nothing
-
---    resetTime
+            unless (k == KeyState'Pressed || or [True | ExitEvent <- old]) $ loop camCurve' schedule'
 
     writeIORef timeRef =<< getCurrentTime
 
     loop camCurve schedule
 
-    case smp of
-      Nothing -> return ()
-      Just smp -> do
-        soundStop smp
-        soundStopAll
+    when audioOn $ soundStopAll
 
     dispose renderer
 
