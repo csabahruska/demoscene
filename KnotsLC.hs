@@ -50,6 +50,9 @@ greetingNames =
   , "a moiré misszió\n  bemutatja"
   ]
 
+delay t = wText2D (Just t) defaultCam ""
+wText2D = WText2D ()
+
 wires :: IO (Wire Int ExpV1)
 wires = flip evalStateT 0 $ transWire $ WHorizontal
     [ WVertical
@@ -57,42 +60,42 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal
         , wire1D 200 $ mulSV3 1.1 . unKnot
         ]
     , WVertical
-      [ WText2D () (Just 2) defaultCam ""
+      [ wText2D (Just 2) defaultCam ""
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 6) defaultCam "lambda presents" ]
-        , WVertical [ WText2D () (Just 8) defaultCam "", WText2D () (Just 8) defaultCam "\nknot theory" ]
+        [ WVertical [ delay 0, wText2D (Just 6) defaultCam "lambda presents" ]
+        , WVertical [ delay 8, wText2D (Just 8) defaultCam "\nknot theory" ]
         ]
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "who do you think" ]
-        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nis going to win" ]
-        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\ncapitalism" ]
+        [ WVertical [ delay 0, wText2D (Just 8) defaultCam "who do you think" ]
+        , WVertical [ delay 3, wText2D (Just 6) defaultCam "\nis going to win" ]
+        , WVertical [ delay 6, wText2D (Just 4) defaultCam "\n\ncapitalism" ]
         ]
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "what is keeping us" ]
-        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nfrom embracing" ]
-        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nour brighter future" ]
+        [ WVertical [ delay 0, wText2D (Just 8) defaultCam "what is keeping us" ]
+        , WVertical [ delay 3, wText2D (Just 6) defaultCam "\nfrom embracing" ]
+        , WVertical [ delay 6, wText2D (Just 4) defaultCam "\n\nour brighter future" ]
         ]
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with humans gone" ]
-        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
-        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor machines" ]
+        [ WVertical [ delay 0, wText2D (Just 8) defaultCam "with humans gone" ]
+        , WVertical [ delay 3, wText2D (Just 6) defaultCam "\nwill there be hope" ]
+        , WVertical [ delay 6, wText2D (Just 4) defaultCam "\n\nfor machines" ]
         ]
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "greetings:" ]
-        , WVertical [ WText2D () (Just 1) defaultCam ("\n  " ++ name) | name <- greetingNames ]
+        [ WVertical [ delay 0, wText2D (Just 8) defaultCam "greetings:" ]
+        , WVertical [ wText2D (Just 1) defaultCam ("\n  " ++ name) | name <- greetingNames ]
         ]
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "music:" ]
-        , WVertical [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  ficture" ]
+        [ WVertical [ delay 0, wText2D (Just 4) defaultCam "music:" ]
+        , WVertical [ delay 1, wText2D (Just 3) defaultCam "\n  ficture" ]
         ]
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 4) defaultCam "code:" ]
-        , WVertical [ WText2D () (Just 1) defaultCam "", WText2D () (Just 3) defaultCam "\n  divip\n  hcs\n  hranolky" ]
+        [ WVertical [ delay 0, wText2D (Just 4) defaultCam "code:" ]
+        , WVertical [ delay 1, wText2D (Just 3) defaultCam "\n  divip\n  hcs\n  hranolky" ]
         ]
       , WHorizontal
-        [ WVertical [ WText2D () (Just 0) defaultCam "", WText2D () (Just 8) defaultCam "with machines gone" ]
-        , WVertical [ WText2D () (Just 3) defaultCam "", WText2D () (Just 6) defaultCam "\nwill there be hope" ]
-        , WVertical [ WText2D () (Just 6) defaultCam "", WText2D () (Just 4) defaultCam "\n\nfor humans" ]
+        [ WVertical [ delay 0, wText2D (Just 8) defaultCam "with machines gone" ]
+        , WVertical [ delay 3, wText2D (Just 6) defaultCam "\nwill there be hope" ]
+        , WVertical [ delay 6, wText2D (Just 4) defaultCam "\n\nfor humans" ]
         ]
       , WFadeOut (Just 5)
       ]
