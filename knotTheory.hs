@@ -43,6 +43,7 @@ import Graphics.Text.TrueType
 import Codec.Image.STB hiding (Image)
 
 import KnotsLC
+import Program
 import qualified Knot
 
 import Math.Noise hiding (zero)
@@ -613,6 +614,7 @@ main' wires = do
         addStreams t@(Just ti) c = case c of
             WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
+            WDelay{..} -> return (liftA2 (+) (realToFrac <$> wDuration) t, [])
             WFadeOut{wDuration = Just len} -> return (t', [(ti, RecurrentEvent t' action)] ++ [(t, ExitEvent) | t <- maybeToList t'])
               where
                 len' = realToFrac len
