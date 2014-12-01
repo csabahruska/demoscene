@@ -155,7 +155,7 @@ texturing1D wire emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fr
         v4 = case wire of
             Wire1D {..} -> modelViewProj @*. (pack' $ V4 fx fy fz (Const 1))
               where
-                Knot.V3 fx fy fz = wVertex1 x
+                Knot.V3 fx fy fz = wVertex $ Knot.V3 x y z
 
         V3 x y z = unpack' uv
 

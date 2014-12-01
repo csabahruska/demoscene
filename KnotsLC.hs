@@ -229,7 +229,7 @@ data Wire i e
         { wInfo :: i
         , wDuration  :: Maybe Float
         , wXResolution :: Int
-        , wVertex1   :: e -> V3 e
+        , wVertex    :: V3 e -> V3 e
         }
     | Wire2D
         { wInfo :: i
@@ -286,7 +286,7 @@ data Camera
     | CamMat Mat4
 
 
-wire1D = Wire1D () Nothing
+wire1D i f = Wire1D () Nothing i (to1 f)
 
 wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire () Exp
 wire2DNorm t i j v = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) Nothing Nothing
@@ -296,10 +296,11 @@ wParticle i j k v c = WParticle () Nothing False i j k v Nothing c Nothing
 wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire () Exp
 wire2DNormAlpha t i j v c a = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) (to2 <$> c) (to2 <$> a)
 
+to1 f (V3 x y z) = f x
 to2 f (V3 x y z) = f (V2 x y)
 
 transWire :: Wire () Exp -> StateT Int IO (Wire Int ExpV1)
-transWire (Wire1D info d i f) = newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> lift (transFun "t" f)
+transWire (Wire1D info d i f) = newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> (lift . transFun3 "t" "s" "k") f
 transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
 transWire (WParticle info d sc i j k v n c a) = newid >>= \id -> WParticle <$> pure id <*> pure d <*> pure sc <*> pure i <*> pure j <*> pure k <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
 transWire (WHorizontal info ws) = newid >>= \id -> WHorizontal <$> pure id <*> traverse transWire ws
