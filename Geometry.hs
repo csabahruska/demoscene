@@ -38,8 +38,8 @@ grid' w' h' =
   where
     w = fromIntegral w'
     h = fromIntegral h'
-    dx = 1 / (fromIntegral w-1)
-    dy = 1 / (fromIntegral h-1)
+    dx = 1 / max 1 (fromIntegral w-1)
+    dy = 1 / max 1 (fromIntegral h-1)
 
 grid :: Int -> Int -> Int -> Mesh
 grid w' h' d' = Mesh
@@ -55,9 +55,9 @@ grid w' h' d' = Mesh
     w = fromIntegral w'
     h = fromIntegral h'
     d = fromIntegral d'
-    dx = 1 / (fromIntegral w-1)
-    dy = 1 / (fromIntegral h-1)
-    dz = 1 / (fromIntegral d-1)
+    dx = 1 / max 1 (fromIntegral w-1)
+    dy = 1 / max 1 (fromIntegral h-1)
+    dz = 1 / max 1 (fromIntegral d-1)
 
 pointGrid3D :: Int -> Int -> Int -> Mesh
 pointGrid3D w h d = Mesh
@@ -78,7 +78,7 @@ line w' = Mesh
     }
   where
     w = fromIntegral w'
-    dx = 1 / (fromIntegral w-1)
+    dx = 1 / max 1 (fromIntegral w-1)
 
 gridStrip :: Int -> Int -> Mesh
 gridStrip w' h' = Mesh
@@ -90,8 +90,8 @@ gridStrip w' h' = Mesh
   where
     w = fromIntegral w'
     h = fromIntegral h'
-    dx = 1 / (fromIntegral w-1)
-    dy = 1 / (fromIntegral h-1)
+    dx = 1 / max 1 (fromIntegral w-1)
+    dy = 1 / max 1 (fromIntegral h-1)
 
 quad :: Mesh
 quad = Mesh
