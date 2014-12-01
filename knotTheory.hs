@@ -443,6 +443,7 @@ data Event
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
+
     GLFW.init
 
     args <- getArgs

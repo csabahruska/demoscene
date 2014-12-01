@@ -97,14 +97,14 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
       , WFadeOut () (Just 5)
       ]
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
-    , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
+    , (wire2DNormAlpha True 2000 3 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
 --    wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
---    wire1D 2000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
+--    wire1D 1000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
 --    wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
 --    wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
---    wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
+--    wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
     , WVertical ()
         [
         ---------
@@ -126,19 +126,19 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
             ]
         , setDuration 10 $ WHorizontal ()
             [ wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
-            , wire2DNorm False 2000 10 $ env2 . cylinderZ 0.08 . (70*)
+            , wire2DNorm False 1000 10 $ env2 . cylinderZ 0.08 . (70*)
             ]
         , setDuration 10 $ WHorizontal ()
-            [ wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
-            , wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
-            ]
-        , setDuration 10 $ WHorizontal ()
-            [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
-            , wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
+            [ wire2DNorm False 1000 10 $ env3 . cylinderZ 0.08 . (60*)
+            , wire2DNorm True 1000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
             ]
         , setDuration 10 $ WHorizontal ()
             [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
-            , wire2DNorm False 2000 10 $ env . cylinderZ 0.015 . (50*)
+            , wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
+            ]
+        , setDuration 10 $ WHorizontal ()
+            [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
+            , wire2DNorm False 1000 10 $ env . cylinderZ 0.015 . (50*)
             ]
 {-
         , setDuration 10 $ WHorizontal ()
@@ -150,13 +150,13 @@ wires = flip evalStateT 0 $ transWire $ WHorizontal ()
             ]
 
         , setDuration 10 $ WHorizontal ()
-            [ wire1D 2000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
+            [ wire1D 1000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
             ]
 -}
         ]
---    wire2DNorm False 2000 10 $ env3 . cylinderZ 0.08 . (60*)
---    wire2DNorm True 2000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
+--    wire2DNorm False 1000 10 $ env3 . cylinderZ 0.08 . (60*)
+--    wire2DNorm True 1000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
 --    wire2DNorm True 2 2 $ planeXY
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
 --    wire2DNorm False 50 50 $ magnifyZ 100 . projectionZ . magnifyZ 0.01 . invPolarXY . magnify (2 * pi) . translateX (-1) . planeZY
@@ -203,7 +203,7 @@ wiresTest :: IO (Wire Int ExpV1)
 wiresTest = flip evalStateT 0 $ transWire $ setDuration 100 $ WHorizontal ()
   [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
   , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
-  , (wire2DNormAlpha True 2000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
+  , (wire2DNormAlpha True 1000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
   ]
 
 tt = 300
