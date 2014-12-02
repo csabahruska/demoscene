@@ -2,10 +2,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeFamilies #-}
 module Program where
 
 import Data.Maybe
 import Control.Applicative hiding (Const)
+import Control.Monad.Identity
 
 import Knot
 import AD
@@ -153,9 +155,9 @@ wires = program $ WHorizontal
           where
             turn = c * helixTurn a b
 
-    middleSin :: Curve -> SpaceTr
+    middleSin :: Curve Identity -> SpaceTr Identity
     middleSin c = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . c)
-    env3 :: SpaceTr
+    env3 :: SpaceTr Identity
     env3 = middleSin $ logarithmicSpiral 0.1 0.04
 
 defaultCam :: LC.M33F

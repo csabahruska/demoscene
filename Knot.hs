@@ -5,6 +5,8 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Knot where
 
 import Data.Foldable
@@ -12,6 +14,7 @@ import Data.Ratio
 import Data.Traversable
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Identity
 
 --import qualified LambdaCube.GL as LC
 import Data.Reflection
@@ -87,58 +90,47 @@ sinCos phi = (sin phi, cos phi)
 
 ------------------------------- timed computations
 
-class Floating a => Timed a where
-    time :: a
+class (Functor (TimedF a), Floating a) => Timed a where
+    type TimedF a :: * -> *
+    time_ :: TimedF a a
+
+time :: (Timed a, TimedF a ~ Identity) => a
+time = runIdentity time_
 
 instance Timed a => Timed (AD s a) where
-    time = AD time
+    type TimedF (AD s a) = TimedF a
+    time_ = AD <$> time_
 instance Timed a => Timed (Forward a) where
-    time = Forward.Lift time
+    type TimedF (Forward a) = TimedF a
+    time_ = Forward.Lift <$> time_
 instance (Timed a, Reifies s Tape) => Timed (Reverse s a) where
-    time = Reverse.Lift time
+    type TimedF (Reverse s a) = TimedF a
+    time_ = Reverse.Lift <$> time_
 
 ------------------------------- Space transformations
 
 type SpaceTrS s = V3 s -> V3 s    -- moving frame
-type SpaceTr = forall s . Timed s => V3 s -> V3 s    -- moving frame
+type SpaceTr c = forall s . (TimedF s ~ c, Timed s) => SpaceTrS s    -- moving frame
 
-translateX :: Floating t => t -> SpaceTrS t
+translateX, translateY, translateZ :: Floating t => t -> SpaceTrS t
 translateX t (V3 x y z) = V3 (t + x) y z
-
-translateY :: Floating t => t -> SpaceTrS t
 translateY t (V3 x y z) = V3 x (t + y) z
-
-translateZ :: Floating t => t -> SpaceTrS t
 translateZ t (V3 x y z) = V3 x y (t + z)
 
-magnifyX :: Floating t => t -> SpaceTrS t
+magnifyX, magnifyY, magnifyZ :: Floating t => t -> SpaceTrS t
 magnifyX t (V3 x y z) = V3 (t * x) y z
-
-magnifyY :: Floating t => t -> SpaceTrS t
 magnifyY t (V3 x y z) = V3 x (t * y) z
-
-magnifyZ :: Floating t => t -> SpaceTrS t
 magnifyZ t (V3 x y z) = V3 x y (t * z)
 
 magnify :: Floating t => t -> SpaceTrS t
 magnify = mulSV3
 
-rotateXY :: Floating s => s -> SpaceTrS s
-rotateXY t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
-  where
-    (s, c) = sinCos t
+rotateXY, rotateXZ, rotateYZ :: Floating s => s -> SpaceTrS s
+rotateXY t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z  where (s, c) = sinCos t
+rotateXZ t (V3 x y z) = V3 (c * x - s * z) y (s * x + c * z)  where (s, c) = sinCos t
+rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)  where (s, c) = sinCos t
 
-rotateXZ :: Floating s => s -> SpaceTrS s
-rotateXZ t (V3 x y z) = V3 (c * x - s * z) y (s * x + c * z)
-  where
-    (s, c) = sinCos t
-
-rotateYZ :: Floating t => t -> SpaceTrS t
-rotateYZ t (V3 x y z) = V3 x (c * y - s * z) (s * y + c * z)
-  where
-    (s, c) = sinCos $ t
-
-projectionZ :: SpaceTr
+projectionZ :: Floating t => SpaceTrS t
 projectionZ (V3 x y z) = V3 (z * x) (z * y) z
 
 twistZ :: Floating t => t -> SpaceTrS t
@@ -146,40 +138,36 @@ twistZ t (V3 x y z) = V3 (c * x - s * y) (s * x + c * y) z
   where
     (s, c) = sinCos $ (2 * pi * t) * z
 
-invPolarXY :: SpaceTr
+invPolarXY :: Floating t => SpaceTrS t
 invPolarXY (V3 x y z) = V3 (x * c) (x * s) z
   where
     (s, c) = sinCos ((2*pi) * y)
 
-invPolarXY' :: SpaceTr
+invPolarXY' :: Floating t => SpaceTrS t
 invPolarXY' (V3 x y z) = V3 (x * c) (x * s) z
   where
     (s, c) = sinCos y
 
-tubularNeighbourhood :: Curve -> SpaceTr
+tubularNeighbourhood :: Curve c -> SpaceTr c
 tubularNeighbourhood c (V3 x y z) = c z + mulMV3 (frenetFrame' c z) (V3 x y 0)
 
 ------------------------------- Curves
 
 type CurveS s = s -> V3 s
-type Curve = forall s . Timed s => s -> V3 s         -- [0,1] -> R3
+type Curve c = forall s . (TimedF s ~ c, Timed s) => CurveS s         -- [0,1] -> R3
 
-lineX :: Curve
+lineX, lineY, lineZ :: Floating s => CurveS s
 lineX x = V3 x 0 0
-
-lineY :: Curve
 lineY x = V3 0 x 0
-
-lineZ :: Curve
 lineZ x = V3 0 0 x
 
-unKnot :: Curve
+unKnot :: Floating s => CurveS s
 unKnot t = V3 (cos w) (sin w) 0
   where
     w = 2 * pi * t
 
 -- normalized helix
-helix :: Timed a => a -> a -> CurveS a
+helix :: Floating a => a -> a -> CurveS a
 helix radius pitch = cu . (/ len)
   where
     cu t = invPolarXY' $ V3 radius t (b * t)
@@ -196,16 +184,16 @@ sqr x = x * x
 helixHeight :: Floating a => a -> a -> a
 helixHeight radius pitch = 1 / sqrt (sqr (2*pi*radius/pitch) + 1)
 
-archimedeanSpiral :: Timed a => a -> a -> CurveS a
+archimedeanSpiral :: Floating a => a -> a -> CurveS a
 archimedeanSpiral radius phase = \t -> invPolarXY' $ V3 (radius * t) (t + phase) 0
 
 archimedeanSpiralLength radius t = 0.5 * radius * (t * sqrt (1 + sqr t) + asinh t)
 
 -- slightly normalized
-archimedeanSpiralN :: Timed a => a -> a -> CurveS a
+archimedeanSpiralN :: Floating a => a -> a -> CurveS a
 archimedeanSpiralN radius phase = archimedeanSpiral radius phase . (+(-1)) . sqrt . (+1) . (/radius)
 
-logarithmicSpiral :: Timed a => a -> a -> CurveS a
+logarithmicSpiral :: Floating a => a -> a -> CurveS a
 logarithmicSpiral a b = \t -> invPolarXY' $ V3 (a * exp (b * t)) t 0
 
 logarithmicSpiralLength :: Floating a => a -> a -> a -> a
@@ -214,7 +202,7 @@ logarithmicSpiralLength a b = \t -> a / b * sqrt (1 + sqr b) * exp (b * t)
 
 
 -- TODO: generalize to (Curve -> Curve)?
-torusKnot :: Integer -> Integer -> Curve
+torusKnot :: Floating s => Integer -> Integer -> CurveS s
 torusKnot p q t = V3 (r * cos p') (r * sin p') (-sin q')
   where
     w = 2 * pi * t
@@ -222,36 +210,38 @@ torusKnot p q t = V3 (r * cos p') (r * sin p') (-sin q')
     q' = w * fromInteger q
     r = cos q' + 2
 
-lissajousKnot :: V3 Integer -> V3 Rational -> Curve
+lissajousKnot :: Floating s => V3 Integer -> V3 s -> CurveS s
 lissajousKnot (V3 nx ny nz) (V3 px py pz) t = V3 x y z
   where
-    x = cos $ 2 * pi * (fromInteger nx * t + fromRational px)
-    y = cos $ 2 * pi * (fromInteger ny * t + fromRational py)
-    z = cos $ 2 * pi * (fromInteger nz * t + fromRational pz)
+    x = cos $ 2 * pi * (fromInteger nx * t + px)
+    y = cos $ 2 * pi * (fromInteger ny * t + py)
+    z = cos $ 2 * pi * (fromInteger nz * t + pz)
 
-diagonalCurve :: Patch -> Curve
+diagonalCurve :: Patch c -> Curve c
 diagonalCurve patch = patch . pure
 
 -- compute the normal vector bundle of a curve (not normalized)
-normalCurve :: Curve -> Curve
+normalCurve :: Curve c -> Curve c
 normalCurve c = diffF c
 
 ------------------------------- Frames
 
-type Frame = forall s . Timed s => s -> V3 (V3 s)    -- moving frame
+type FrameS s = s -> V3 (V3 s)    -- moving frame
+type Frame c = forall s . (TimedF s ~ c, Timed s) => FrameS s    -- moving frame
 
 -- compute the Frenet frame of a curve
 -- http://en.wikipedia.org/wiki/Frenet%E2%80%93Serret_formulas
-frenetFrame :: Curve -> Frame
+frenetFrame, frenetFrame' :: forall c . Curve c -> Frame c
 frenetFrame c = liftA2 cross (unitV3 . c'') (unitV3 . c')
   where
+    c' :: Curve c
     c' = normalCurve c
     c'' = normalCurve c'
     cross i k = V3 i (crossV3 k i) k
 
-frenetFrame' :: Curve -> Frame
 frenetFrame' c = liftA2 cross (unitV3 . c'') c'
   where
+    c' :: Curve c
     c' = normalCurve c
     c'' = normalCurve c'
     cross i k = V3 (mulSV3 (normV3 k) i) (crossV3 k i) k
@@ -259,38 +249,41 @@ frenetFrame' c = liftA2 cross (unitV3 . c'') c'
 ------------------------------- Patches
 
 type PatchS s = V2 s -> V3 s      -- [0,1] x [0,1] -> R3
-type Patch = forall s . Timed s => V2 s -> V3 s      -- [0,1] x [0,1] -> R3
+type Patch c = forall s . (TimedF s ~ c, Timed s) => PatchS s
 
-planeXY :: Patch
+planeXY, planeYZ, planeZY, planeZX :: Floating t => PatchS t
 planeXY (V2 x y) = V3 x y 0
-
-planeYZ :: Patch
 planeYZ (V2 x y) = V3 0 x y
-
-planeZY :: Patch
 planeZY (V2 x y) = V3 0 y x
-
-planeZX :: Patch
 planeZX (V2 x y) = V3 y 0 x
 
-cylinderZ :: Timed s => s -> PatchS s
+cylinderZ :: Floating s => s -> PatchS s
 cylinderZ dia = invPolarXY . translateX dia . planeZY
 
 {-
 http://en.wikipedia.org/wiki/Tubular_neighborhood
 http://en.wikipedia.org/wiki/Vector_bundle
 -}
-tubularPatch :: Curve -> Curve -> Patch
+tubularPatch :: Curve c -> Curve c -> Patch c
 tubularPatch path mask (V2 t u) = path t + mulMV3 (frenetFrame path t) (mask u)
 
 -- compute the normal vector bundle of a patch
-normalPatch :: Patch -> Patch
+normalPatch :: Patch c -> Patch c
 normalPatch patch v = crossV3 du dt
   where
-    V2 du dt = transpose32 . jacobian patch $ v
+    V2 du dt = transpose32 . jacobian (\x -> patch x) $ v
 
-torus :: Patch
-torus = tubularPatch (mulSV3 4 . unKnot) unKnot
+torus :: Floating s => PatchS s
+torus = cast $ tubularPatch (mulSV3 4 . unKnot) unKnot
+
+cast :: (forall c . Patch c) -> forall f . Floating f => PatchS f
+cast c x = getNoTime <$> c (NoTime <$> x)
+
+newtype NoTime a = NoTime { getNoTime :: a }
+    deriving (Num, Fractional, Floating)
+instance Floating a => Timed (NoTime a) where
+    type TimedF (NoTime a) = Const ()
+    time_ = Const ()
 
 ----------------------------- sampling
 

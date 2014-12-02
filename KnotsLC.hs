@@ -9,6 +9,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 module KnotsLC where
 
 import Data.Maybe
@@ -43,12 +44,12 @@ program = fmap timing . flip evalStateT 0 . transWire
 
 delay t = WDelay (Just t)
 wText2D = WText2D ()
-
-instance Knot.Timed Float where
+{-
+instance Timed Float where
   time = error "Can't get the time in Float land"
-
-curveToCameraPath :: (Floating s, Timed s) => Curve -> s -> (V3 s, V3 (V3 s))
-curveToCameraPath curve t = (curve t, frenetFrame curve t)
+-}
+curveToCameraPath :: (forall c . Curve c) -> forall s . Floating s => s -> (V3 s, V3 (V3 s))
+curveToCameraPath curve t = (getNoTime <$> curve (NoTime t), fmap getNoTime <$> frenetFrame curve (NoTime t))
 
 cameraToMat4 :: (V3 Float, V3 (V3 Float)) -> Mat4
 cameraToMat4 (origin, V3 columnX columnY columnZ) =
@@ -136,7 +137,7 @@ data Wire_ dur i e
     -- normal
 
 data Camera
-    = CamCurve Knot.Curve
+    = CamCurve (forall s . Floating s => CurveS s)
     | CamMat Mat4
 
 flattenWire (WHorizontal w) = concatMap flattenWire w
@@ -146,12 +147,12 @@ flattenWire w = [w]
 
 wire1D i f = Wire1D () Nothing i (to1 f)
 
-wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire_ (Maybe t) () Exp
+wire2DNorm :: Bool -> Int -> Int -> Patch Identity -> Wire_ (Maybe t) () Exp
 wire2DNorm t i j v = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) Nothing Nothing
 
 wParticle i j k v c = WParticle () Nothing False i j k v Nothing c Nothing
 
-wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire_ (Maybe t) () Exp
+wire2DNormAlpha :: Bool -> Int -> Int -> Patch Identity -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire_ (Maybe t) () Exp
 wire2DNormAlpha t i j v c a = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) (to2 <$> c) (to2 <$> a)
 
 to1 f (V3 x y z) = f x
@@ -257,7 +258,9 @@ transExp x = (\(Graph rx x) env -> transExp_ x env (IM.map Left $ IM.fromList rx
 
 
 instance Timed Exp where
-    time = "time"
+    type TimedF Exp = Identity
+    time_ = Identity "time"
 
 testComplexity = (normalPatch $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp
 testComplexity' = (normalPatch $ tubularPatch (mulSV3 0.1 . unKnot) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp
+
