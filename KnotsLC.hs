@@ -165,7 +165,7 @@ pattern PC t f = Pair (Constant t) f
 
 trav :: RealFrac t => Wire_ (Maybe t) i e -> Product (Constant (t, Bool)) ((->) t) (Wire_ t i e)
 trav = \case
-    WHorizontal (traverse ((\(PC (t, b) f) -> PC (Maximum t, Any b) f) . trav) -> PC (Maximum t, Any b) f)
+    WHorizontal (traverse ((\(PC (t, b) f) -> PC (Maximum t, All b) f) . trav) -> PC (Maximum t, All b) f)
         -> PC (t, b) $ WHorizontal . f
     WVertical (foldMap ((\(PC (t, b) f) -> (Sum t, [t], [b], Sum (fromEnum b), [f])) . trav) -> (Sum t, ts, bs, Sum b, fs))
         -> PC (t, or bs) $ WVertical . zipWith ($) fs . zipWith (+) ts . zipWith ff bs . repeat . (/ fromIntegral b) . subtract t
@@ -174,6 +174,15 @@ trav = \case
         ff False = const 0
     w@(wDuration -> Nothing) -> PC (0, True)  $ \t -> w { wDuration = t }
     w@(wDuration -> Just d)  -> PC (d, False) $ \t -> w { wDuration = d }
+
+transW :: (V3 e -> V3 e) -> Wire_ t i e -> Wire_ t i e
+transW tr = \case
+    WHorizontal x -> WHorizontal $ map (transW tr) x
+    WVertical x -> WVertical $ map (transW tr) x
+    w@Wire1D{} -> w { wVertex = tr . wVertex w }
+    w@Wire2D{} -> w { wVertex = tr . wVertex w }
+    w@WParticle{} -> w { wVertex = tr . wVertex w }
+    w -> w
 
 
 newtype Maximum d = Maximum {getMaximum :: d}

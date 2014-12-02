@@ -92,26 +92,26 @@ wires = program $ WHorizontal
     , wParticle 10 10 10 (magnify 20 . hopf . translateY 0.1 . rotateYZ 0.1 . translateX 0.1 . rotateXZ 3 . magnify (2*pi)) Nothing
 
     , WVertical
-        [ WHorizontal
+        [ transW env3 $ WHorizontal
             [ delay 30
-            , wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
-            , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
+            , wire1D 10000 $ helix 0.1 0.2 . (200 *)
+            , wire2DNormAlpha True 1000 10 (magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
                                 (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
             ]
-        , WHorizontal
+        , transW (magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)) $ WHorizontal
             [ delay 10
-            , wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
-            , wire2DNorm False 1000 10 $ env2 . cylinderZ 0.08 . (70*)
+            , wire1D 10000 $ helix 0.1 0.2 . (200 *)
+            , wire2DNorm False 1000 10 $ cylinderZ 0.08 . (70*)
             ]
-        , WHorizontal
+        , transW env3 $ WHorizontal
             [ delay 10
-            , wire2DNorm False 1000 10 $ env3 . cylinderZ 0.08 . (60*)
-            , wire2DNorm True 1000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
+            , wire2DNorm False 1000 10 $ cylinderZ 0.08 . (60*)
+            , wire2DNorm True 1000 10 $ translateY (-0.5) . magnifyZ 60 . planeZY
             ]
-        , WHorizontal
+        , transW (magnify 2 . tubularNeighbourhood (helix 0.9 (sin time + 1.5)) . tubularNeighbourhood (helix 0.3 0.5 . (+ 0.5 * sin (2 * time))) . tubularNeighbourhood (helix 0.1 (0.5/3) . (+ 0.03 * sin (10 * time)))) $ WHorizontal
             [ delay 20
-            , wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
-            , wire2DNorm False 2400 10 $ env . cylinderZ 0.015 . (50*)
+            , wire1D 10000 $ helix (0.1/3) (0.5/9) . (200 *)
+            , wire2DNorm False 2400 10 $ cylinderZ 0.015 . (50*)
             ]
 
 {-
@@ -144,8 +144,6 @@ wires = program $ WHorizontal
 --    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (Just $ sin . normV2)
     ]
   where
-    env = magnify 2 . tubularNeighbourhood (helix 0.9 (sin time + 1.5)) . tubularNeighbourhood (helix 0.3 0.5 . (+ 0.5 * sin (2 * time))) . tubularNeighbourhood (helix 0.1 (0.5/3) . (+ 0.03 * sin (10 * time)))
-    env2 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)
     env3 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . logarithmicSpiral 0.1 0.04)
 
 defaultCam :: LC.M33F
