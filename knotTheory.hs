@@ -436,7 +436,7 @@ fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
 streamName :: Int -> BS.ByteString
 streamName = ("stream" <>) . BS.pack . show
 
-type Time = Double
+type Time = Float
 
 data Event
     = TurnOn Object
@@ -613,41 +613,32 @@ main' wires = do
     let audioOn = or [True | WSound{} <- flattenWire wires]
     when audioOn $ void $ initAudio 2 44100 1024
 
-    let addStreams :: Maybe Time -> Wire Int (Exp V Float) -> IO (Maybe Time, [(Time, Event)])
-        addStreams Nothing _ = return (Nothing, [])
-        addStreams t@(Just ti) c = case c of
-            WHorizontal{..} -> (foldr (liftA2 max) t *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
+    let addStreams :: Time -> Wire Int (Exp V Float) -> IO (Time, [(Time, Event)])
+        addStreams t c = case c of
+            WHorizontal{..} -> (maximum *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
-            WDelay{..} -> return (liftA2 (+) (realToFrac <$> wDuration) t, [])
+            WDelay{..} -> return (t + wDuration, [])
             WSound{..} -> do
                 smp <- sampleFromFile "music/Take_Them.ogg" 1
-                return (t', [(ti, PlaySound smp)] ++ [(t, StopSound smp) | t <- maybeToList t'])
+                return (t', [(t, PlaySound smp), (t', StopSound smp)])
+            WFadeOut{..} -> return (t', [(t, RecurrentEvent (Just t') action), (t', ExitEvent)])
               where
-                t' = liftA2 (+) t (realToFrac <$> wDuration)
-            WFadeOut{wDuration = Just len} -> return (t', [(ti, RecurrentEvent t' action)] ++ [(t, ExitEvent) | t <- maybeToList t'])
-              where
-                len' = realToFrac len
-                t' = liftA2 (+) (Just len') t
                 action time = do
                     print v
                     when audioOn $ volume v v
                     uniformFloat "brightness" uniformMap v
-                  where v = realToFrac $ min 1 $ max 0 $ 1 - ((time - ti) / len')
-            WCamera{..} -> return (t', [(ti, SetCam wCamera)])
-              where
-                t' = liftA2 (+) t (realToFrac <$> wDuration)
+                  where v = min 1 $ max 0 $ 1 - ((time - t) / wDuration)
+            WCamera{..} -> return (t', [(t, SetCam wCamera)])
             w -> do
                 (gpuCube, act, sName) <- case w of
                     Wire1D {..} -> (,const [],streamName $ wInfo) <$> compileMesh (line wXResolution)
                     Wire2D { wXResolution = i, wYResolution = j } -> (,const [],streamName $ wInfo w) <$> compileMesh (grid i j 1)
                     WParticle { wXResolution = i, wYResolution = j , wZResolution = k } -> (,const [],streamName $ wInfo w) <$> compileMesh (pointGrid3D i j k)
-                    WText2D { wText = txt, wTextPosition, wDuration } -> do
+                    WText2D { wText = txt, wTextPosition } -> do
                       m <- compileMesh =<< buildTextMesh atlas textStyle txt
                       let
-                          len' = realToFrac <$> wDuration
-                          t' = liftA2 (+) len' t
-                          tEnd = maybe 1000000 id t'
-                          tStart = ti
+                          tEnd = t'
+                          tStart = t
                           action o time = do
                             let textUniforms = objectUniformSetter o
                                 fadeTime = 1
@@ -667,15 +658,14 @@ main' wires = do
                             --print (tStart,fadeIn,time,fadeOut,tEnd,alpha)
                             uniformFloat "textAlpha" textUniforms alpha
                             uniformM33F "textTransform" textUniforms wTextPosition
-                      return (m,\o -> [(ti,RecurrentEvent t' (action o))],"textMesh")
+                      return (m, \o -> [(t, RecurrentEvent (Just t') (action o))], "textMesh")
                 obj <- addMesh renderer sName gpuCube ["textTransform","textAlpha"]
 
-                when (maybe True (> 0) t) $
-                    enableObject obj False
-                case wDuration w of
-                    Nothing -> return (Nothing, [(ti, TurnOn obj)] `merge` act obj)
-                    Just dur -> return (Just ti', [(ti, TurnOn obj), (ti', TurnOff obj)] `merge` act obj)
-                        where ti' = ti + realToFrac dur
+                when (t > 0) $ enableObject obj False
+
+                return (t', [(t, TurnOn obj), (t', TurnOff obj)] `merge` act obj)
+          where
+            t' = wDuration c + t
 
         merge = mergeBy (compare `on` fst)
         compare' (Just a) (Just b) = compare a b
@@ -683,7 +673,7 @@ main' wires = do
         compare' Nothing _ = GT
         compare' _ _ = LT
 
-    (_end, schedule) <- addStreams (Just 0) wires
+    (_end, schedule) <- addStreams 0 wires
 
     timeRef <- newIORef =<< getCurrentTime
 

@@ -8,16 +8,21 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module KnotsLC where
 
 import Data.Maybe
 import Data.Traversable
+import Data.Foldable (foldMap)
+import Data.Functor.Product
+import Data.Functor.Constant
 import Control.Applicative hiding (Const)
-import Control.Monad.Writer
+import Control.Monad.Writer hiding (Product)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Identity
 import Control.Monad.Cont
+import Control.Arrow
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.ByteString.Char8 as BS
@@ -33,7 +38,8 @@ import qualified LambdaCube.GL as LC
 
 ---------------------
 
-program = flip evalStateT 0 . transWire
+program :: Wire_ (Maybe Float) () Exp -> IO (Wire Int ExpV1)
+program = fmap timing . flip evalStateT 0 . transWire
 
 delay t = WDelay (Just t)
 wText2D = WText2D ()
@@ -69,16 +75,18 @@ setDuration d w = w { wDuration = Just d }
 type ExpV1 = LC.Exp V Float
 type ExpV3 = V3 ExpV1
 
-data Wire i e
+type Wire = Wire_ Float
+
+data Wire_ dur i e
     = Wire1D
         { wInfo :: i
-        , wDuration  :: Maybe Float
+        , wDuration  :: dur
         , wXResolution :: Int
         , wVertex    :: V3 e -> V3 e
         }
     | Wire2D
         { wInfo :: i
-        , wDuration  :: Maybe Float
+        , wDuration  :: dur
         , wTwosided  :: Bool
         , wSimpleColor  :: Bool
         , wXResolution :: Int
@@ -90,7 +98,7 @@ data Wire i e
         }
     | WParticle
         { wInfo :: i
-        , wDuration  :: Maybe Float
+        , wDuration  :: dur
         , wSimpleColor  :: Bool
         , wXResolution :: Int
         , wYResolution :: Int
@@ -101,29 +109,29 @@ data Wire i e
         , wAlpha     :: Maybe (V3 e -> e)
         }
     | WHorizontal
-        { wWires :: [Wire i e]
+        { wWires :: [Wire_ dur i e]
         }
     | WVertical
-        { wWires :: [Wire i e]
+        { wWires :: [Wire_ dur i e]
         }
     | WFadeOut
-        { wDuration  :: Maybe Float
+        { wDuration  :: dur
         }
     | WCamera
-        { wDuration  :: Maybe Float
+        { wDuration  :: dur
         , wCamera :: Camera
         }
     | WText2D
         { wInfo :: i
-        , wDuration  :: Maybe Float
+        , wDuration  :: dur
         , wTextPosition :: LC.M33F
         , wText :: String
         }
     | WDelay
-        { wDuration  :: Maybe Float
+        { wDuration  :: dur
         }
     | WSound
-        { wDuration  :: Maybe Float
+        { wDuration  :: dur
         , wSample :: FilePath
         }
     -- sprite
@@ -141,18 +149,43 @@ flattenWire w = [w]
 
 wire1D i f = Wire1D () Nothing i (to1 f)
 
-wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire () Exp
+wire2DNorm :: Bool -> Int -> Int -> Patch -> Wire_ (Maybe t) () Exp
 wire2DNorm t i j v = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) Nothing Nothing
 
 wParticle i j k v c = WParticle () Nothing False i j k v Nothing c Nothing
 
-wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire () Exp
+wire2DNormAlpha :: Bool -> Int -> Int -> Patch -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire_ (Maybe t) () Exp
 wire2DNormAlpha t i j v c a = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) (to2 <$> c) (to2 <$> a)
 
 to1 f (V3 x y z) = f x
 to2 f (V3 x y z) = f (V2 x y)
 
-transWire :: Wire () Exp -> StateT Int IO (Wire Int ExpV1)
+
+timing :: RealFrac t => Wire_ (Maybe t) i e -> Wire_ t i e
+timing (trav -> PC (t, _) g) = g t
+
+pattern PC t f = Pair (Constant t) f
+
+trav :: RealFrac t => Wire_ (Maybe t) i e -> Product (Constant (t, Bool)) ((->) t) (Wire_ t i e)
+trav = \case
+    WHorizontal (traverse ((\(PC (t, b) f) -> PC (Maximum t, Any b) f) . trav) -> PC (Maximum t, Any b) f)
+        -> PC (t, b) $ WHorizontal . f
+    WVertical (foldMap ((\(PC (t, b) f) -> (Sum t, [t], [b], Sum (fromEnum b), [f])) . trav) -> (Sum t, ts, bs, Sum b, fs))
+        -> PC (t, or bs) $ WVertical . zipWith ($) fs . zipWith (+) ts . zipWith ff bs . repeat . (/ fromIntegral b) . subtract t
+      where
+        ff True = id
+        ff False = const 0
+    w@(wDuration -> Nothing) -> PC (0, True)  $ \t -> w { wDuration = t }
+    w@(wDuration -> Just d)  -> PC (d, False) $ \t -> w { wDuration = d }
+
+
+newtype Maximum d = Maximum {getMaximum :: d}
+    deriving Functor
+instance Real d => Monoid (Maximum d) where
+    mempty = Maximum 0
+    Maximum d `mappend` Maximum e = Maximum (d `max` e)
+
+transWire :: Wire_ t () Exp -> StateT Int IO (Wire_ t Int ExpV1)
 transWire = \case
     Wire1D info d i f
         -> newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> (lift . transFun3 "t" "s" "k") f
