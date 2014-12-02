@@ -7,7 +7,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE LambdaCase #-}
 module KnotsLC where
 
 import Data.Maybe
@@ -153,16 +153,20 @@ to1 f (V3 x y z) = f x
 to2 f (V3 x y z) = f (V2 x y)
 
 transWire :: Wire () Exp -> StateT Int IO (Wire Int ExpV1)
-transWire (Wire1D info d i f) = newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> (lift . transFun3 "t" "s" "k") f
-transWire (Wire2D info d b sc i j v n c a) = newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
-transWire (WParticle info d sc i j k v n c a) = newid >>= \id -> WParticle <$> pure id <*> pure d <*> pure sc <*> pure i <*> pure j <*> pure k <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
-transWire (WHorizontal ws) = WHorizontal <$> traverse transWire ws
-transWire (WVertical ws) = WVertical <$> traverse transWire ws
-transWire (WFadeOut ws) = WFadeOut <$> pure ws
-transWire (WDelay t) = WDelay <$> pure t
-transWire (WCamera dur ws) = WCamera <$> pure dur <*> pure ws
-transWire (WText2D info dur ws txt) = newid >>= \id -> WText2D <$> pure id <*> pure dur <*> pure ws <*> pure txt
-transWire (WSound a b) = pure $ WSound a b
+transWire = \case
+    Wire1D info d i f
+        -> newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> (lift . transFun3 "t" "s" "k") f
+    Wire2D info d b sc i j v n c a
+        -> newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
+    WParticle info d sc i j k v n c a
+        -> newid >>= \id -> WParticle <$> pure id <*> pure d <*> pure sc <*> pure i <*> pure j <*> pure k <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
+    WText2D info dur ws txt -> newid >>= \id -> WText2D <$> pure id <*> pure dur <*> pure ws <*> pure txt
+    WHorizontal ws  -> WHorizontal <$> traverse transWire ws
+    WVertical ws    -> WVertical <$> traverse transWire ws
+    WFadeOut ws     -> pure $ WFadeOut ws
+    WDelay t        -> pure $ WDelay t
+    WCamera dur ws  -> pure $ WCamera dur ws
+    WSound a b      -> pure $ WSound a b
 
 newid = do
     st <- get
