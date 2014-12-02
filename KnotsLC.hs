@@ -67,9 +67,6 @@ cameraToMat4 (origin, V3 columnX columnY columnZ) =
     tw = Vec4 (-ox) (-oy) (-oz) 1
   in Mat4 tx ty tz tw .*. Mat4 rx ry rz rw
 
-setDuration d (WHorizontal ws) = WHorizontal $ map (setDuration d) ws
-setDuration d w = w { wDuration = Just d }
-
 ---------------------
 
 type ExpV1 = LC.Exp V Float

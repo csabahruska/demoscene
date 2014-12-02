@@ -92,34 +92,38 @@ wires = program $ WHorizontal
     , wParticle 10 10 10 (magnify 20 . hopf . translateY 0.1 . rotateYZ 0.1 . translateX 0.1 . rotateXZ 3 . magnify (2*pi)) Nothing
 
     , WVertical
-        [ setDuration 30 $ WHorizontal
-            [ wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
+        [ WHorizontal
+            [ delay 30
+            , wire1D 10000 $ env3 . helix 0.1 0.2 . (200 *)
             , wire2DNormAlpha True 1000 10 (env3 . magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
                                 (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
             ]
-        , setDuration 10 $ WHorizontal
-            [ wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
+        , WHorizontal
+            [ delay 10
+            , wire1D 10000 $ env2 . helix 0.1 0.2 . (200 *)
             , wire2DNorm False 1000 10 $ env2 . cylinderZ 0.08 . (70*)
             ]
-        , setDuration 10 $ WHorizontal
-            [ wire2DNorm False 1000 10 $ env3 . cylinderZ 0.08 . (60*)
+        , WHorizontal
+            [ delay 10
+            , wire2DNorm False 1000 10 $ env3 . cylinderZ 0.08 . (60*)
             , wire2DNorm True 1000 10 $ env3 . translateY (-0.5) . magnifyZ 60 . planeZY
             ]
-        , setDuration 20 $ WHorizontal
-            [ wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
+        , WHorizontal
+            [ delay 20
+            , wire1D 10000 $ env . helix (0.1/3) (0.5/9) . (200 *)
             , wire2DNorm False 2400 10 $ env . cylinderZ 0.015 . (50*)
             ]
 
 {-
-        , setDuration 10 $ WHorizontal
+        , WHorizontal
             [ wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
             , wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
             ]
-        , setDuration 10 $ WHorizontal
+        , WHorizontal
             [ wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
             ]
 
-        , setDuration 10 $ WHorizontal
+        , WHorizontal
             [ wire1D 1000 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . helix 0.1 (0.5/3) . (50*)
             , wire2DNorm False 100 10 $ translateZ (-1.5) . tubularNeighbourhood (helix 0.3 0.5) . cylinderZ 0.08 . (10*)
             ]
@@ -165,8 +169,9 @@ greetingNames =
 ---------------------
 
 wiresTest :: IO (Wire Int ExpV1)
-wiresTest = program $ setDuration 100 $ WHorizontal
-  [ wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
+wiresTest = program $ WHorizontal
+  [ delay 100
+  , wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot
   , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
   , (wire2DNormAlpha True 1000 5 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ const $ V3 0.5 0.5 0.5) Nothing) {wSimpleColor = True}
   ]
