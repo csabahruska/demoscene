@@ -8,6 +8,7 @@ import Data.Maybe
 import Control.Applicative hiding (Const)
 
 import Knot
+import AD
 import Data.Vect
 import Utility
 import KnotsLC
@@ -98,7 +99,7 @@ wires = program $ WHorizontal
             , wire2DNormAlpha True 1000 10 (magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
                                 (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
             ]
-        , transW (magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . archimedeanSpiralN 0.02 0)) $ WHorizontal
+        , transW (middleSin $ archimedeanSpiralN 0.02 0) $ WHorizontal
             [ delay 10
             , wire1D 10000 $ helix 0.1 0.2 . (200 *)
             , wire2DNorm False 1000 10 $ cylinderZ 0.08 . (70*)
@@ -144,7 +145,10 @@ wires = program $ WHorizontal
 --    wire2DNormAlpha True 20 20 (magnify 3 . translateY (-0.5) . planeYZ) (Just $ sin . normV2)
     ]
   where
-    env3 = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . logarithmicSpiral 0.1 0.04)
+    middleSin :: Curve -> SpaceTr
+    middleSin c = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . c)
+    env3 :: SpaceTr
+    env3 = middleSin $ logarithmicSpiral 0.1 0.04
 
 defaultCam :: LC.M33F
 defaultCam = LC.V3 (LC.V3 (scale * 0.75) 0 0) (LC.V3 0 scale 0) (LC.V3 ofsX ofsY 1)
