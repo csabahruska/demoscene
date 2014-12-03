@@ -1,6 +1,8 @@
 {-# LANGUAGE PackageImports, OverloadedStrings, DataKinds, TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 import Control.Applicative ((<$>))
+import Control.Arrow
 import Control.Monad
 import Control.Monad.Fix
 import Data.Time.Clock
@@ -70,12 +72,15 @@ main = do
         letterScale = if length args > 1 then read (args !! 1) else 72
     atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
 
-    let printText :: String -> IO Object
-        printText txt = do
+    let printText_ :: String -> IO Object
+        printText_ txt = do
           textMesh <- buildTextMesh atlas textStyle txt
           textBuffer <- compileMesh textMesh
           addMesh renderer "textMesh" textBuffer []
-        txt0 = unlines
+        printText :: (String, String) -> IO Object
+        printText (xs, ys) = printText_ $ reverse xs ++ '|' : ys
+
+        txt0 = (\s -> (reverse s, "")) $ unlines
                 [ "01-02-03-04-05-07-08-09-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30"
                 , "→➡⊎×⋆∷∘∨∧⊔⊓"
                 , "∀∃"
@@ -98,8 +103,8 @@ main = do
     setCharCallback win $ Just $ \_ c -> do
       rAlt <- (==KeyState'Pressed) <$> getKey win Key'RightAlt
       when (isPrint c && not rAlt) $ do
-        (txt,txtObj) <- readIORef editState
-        let txt' = txt ++ [c]
+        ((as,bs),txtObj) <- readIORef editState
+        let txt' = (c: as, bs)
         txtObj' <- printText txt'
         removeObject renderer txtObj
         writeIORef editState (txt',txtObj')
@@ -108,10 +113,21 @@ main = do
     setKeyCallback win $ Just $ \_ k sc ks mk -> do
       when (ks == KeyState'Pressed || ks == KeyState'Repeating) $ do
         (txt,txtObj) <- readIORef editState
-        let txt' = case k of
-              Key'Backspace -> take (length txt-1) txt
-              Key'Enter     -> txt ++ ['\n']
-              _ -> txt
+        let txt' = f k txt
+
+            findChar c [] = Nothing
+            findChar c (x:xs)
+                | x==c = Just ([], xs)
+                | otherwise = ((x:) *** id) <$> findChar c xs
+
+            f Key'Enter     (as, bs)        = ('\n': as, bs)
+            f Key'Backspace (_: as, bs)     = (as, bs)
+            f Key'Delete    (as, _: bs)     = (as, bs)
+            f Key'Left      (a: as, bs)     = (as, a: bs)
+            f Key'Right     (as, b: bs)     = (b: as, bs)
+            f Key'Up        (findChar '\n' -> Just (cs, as), bs)     = (as, '\n': reverse cs ++ bs)
+            f Key'Down      (as, findChar '\n' -> Just (cs, bs))     = ('\n': reverse cs ++ as, bs)
+            f _             _               = txt
         when (txt /= txt') $ do
           txtObj' <- printText txt'
           removeObject renderer txtObj
