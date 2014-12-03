@@ -19,6 +19,7 @@ import LambdaCube.GL.Mesh
 import System.Environment
 import System.Exit
 import Data.Vect
+import qualified Data.Vector.Storable as Vec
 
 import Data.IORef
 import Data.Char
@@ -72,15 +73,20 @@ main = do
         letterScale = if length args > 1 then read (args !! 1) else 72
     atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
 
-    let printText_ :: String -> IO Object
-        printText_ txt = do
-          textMesh <- buildTextMesh atlas textStyle txt
+    let printText :: ((String, String), Int) -> IO Object
+        printText ((xs, ys), e) = do
+          let col i (splitAt i -> (as, bs)) = map ((,) (V4 0 0 0 0, V4 0 1 0 1)) as ++ map ((,) (V4 0 0 0 0, V4 1 1 1 1)) bs
+              txt_ = reverse (col (max 0 $ negate e) xs) ++ ((V4 0 0 0 0, V4 1 0 0 1), '|') : col (max 0 e) ys
+              txt = map snd txt_
+              colors = Vec.fromList . concatMap (replicate 6) $ map (snd . fst) $ filter (not . isSpace . snd) txt_ :: Vec.Vector V4F
+              background = Vec.fromList . concatMap (replicate 6) $ map (fst . fst) $ filter (not . isSpace . snd) txt_ :: Vec.Vector V4F
+          textMesh_ <- buildTextMesh atlas textStyle txt
+          let textMesh = textMesh_ { mAttributes = T.insert "color" (A_V4F colors) $ T.insert "background" (A_V4F background) $ mAttributes textMesh_ }
           textBuffer <- compileMesh textMesh
           addMesh renderer "textMesh" textBuffer []
-        printText :: (String, String) -> IO Object
-        printText (xs, ys) = printText_ $ reverse xs ++ '|' : ys
 
-        txt0 = (\s -> (reverse s, "")) $ unlines
+        txt0 = (\s -> ((reverse s, ""), 0 :: Int)) $ unlines []
+        agdaChars =
                 [ "01-02-03-04-05-07-08-09-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-27-28-29-30"
                 , "→➡⊎×⋆∷∘∨∧⊔⊓"
                 , "∀∃"
@@ -92,7 +98,7 @@ main = do
                 ]
     txtObj0 <- printText txt0
 
-    editState <- newIORef (txt0,txtObj0)
+    editState <- newIORef ((txt0, ""),txtObj0)
 
     let uniforms = uniformSetter renderer
         letterScale = atlasLetterScale (atlasOptions atlas)
@@ -102,36 +108,58 @@ main = do
     -- adding character to string
     setCharCallback win $ Just $ \_ c -> do
       rAlt <- (==KeyState'Pressed) <$> getKey win Key'RightAlt
-      when (isPrint c && not rAlt) $ do
-        ((as,bs),txtObj) <- readIORef editState
-        let txt' = (c: as, bs)
+      rCtrl <- (==KeyState'Pressed) <$> getKey win Key'LeftControl
+      when (isPrint c && not rAlt && not rCtrl) $ do
+        ((((as,bs), sel_), clipboard),txtObj) <- readIORef editState
+        let txt' = ((c:) *** id $ delSel (as, bs), 0)
+
+            delSel (as, bs) = (when_ (sel_ < 0) (drop $ negate sel_) as, when_ (sel_ > 0) (drop sel_) bs)
         txtObj' <- printText txt'
         removeObject renderer txtObj
-        writeIORef editState (txt',txtObj')
+        writeIORef editState ((txt', clipboard),txtObj')
 
     -- handle control buttons e.g. backspace
     setKeyCallback win $ Just $ \_ k sc ks mk -> do
       when (ks == KeyState'Pressed || ks == KeyState'Repeating) $ do
-        (txt,txtObj) <- readIORef editState
-        let txt' = f k txt
+        ((tx@(txt, sel_), clipboard), txtObj) <- readIORef editState
+        let (txt', clipboard') = f k txt
 
-            findChar c [] = Nothing
-            findChar c (x:xs)
-                | x==c = Just ([], xs)
-                | otherwise = ((x:) *** id) <$> findChar c xs
+            noSel x = ((x, 0), clipboard)
+            sel s x
+                | not shift = noSel x
+                | otherwise = ((x, s + sel_), clipboard)
+            shift = modifierKeysShift mk
 
-            f Key'Enter     (as, bs)        = ('\n': as, bs)
-            f Key'Backspace (_: as, bs)     = (as, bs)
-            f Key'Delete    (as, _: bs)     = (as, bs)
-            f Key'Left      (a: as, bs)     = (as, a: bs)
-            f Key'Right     (as, b: bs)     = (b: as, bs)
-            f Key'Up        (findChar '\n' -> Just (cs, as), bs)     = (as, '\n': reverse cs ++ bs)
-            f Key'Down      (as, findChar '\n' -> Just (cs, bs))     = ('\n': reverse cs ++ as, bs)
-            f _             _               = txt
-        when (txt /= txt') $ do
-          txtObj' <- printText txt'
-          removeObject renderer txtObj
-          writeIORef editState (txt',txtObj')
+            delSel (as, bs) = (when_ (sel_ < 0) (drop $ negate sel_) as, when_ (sel_ > 0) (drop sel_) bs)
+
+            f Key'Enter     (as, bs)        = noSel ('\n': as, bs)
+            f Key'Backspace (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
+            f Key'Backspace (_: as, bs)     = noSel (as, bs)
+            f Key'Delete    (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
+            f Key'Delete    (as, _: bs)     = noSel (as, bs)
+            f Key'Left      (a: as, bs)     = sel   1  (as, a: bs)
+            f Key'Left      (as, bs) | not shift       = noSel (as, bs)
+            f Key'Right     (as, b: bs)     = sel (-1) (b: as, bs)
+            f Key'Right     (as, bs) | not shift        = noSel (as, bs)
+            f Key'Up        (findChar '\n' -> Just (cs, as), bs) = sel (length $ '\n': reverse cs) (as, '\n': reverse cs ++ bs)
+            f Key'Up        (as, bs) | not shift        = noSel (as, bs)
+            f Key'Down      (as, findChar '\n' -> Just (cs, bs)) = sel (negate $ length $ '\n': reverse cs) ('\n': reverse cs ++ as, bs)
+            f Key'Down      (as, bs) | not shift        = noSel (as, bs)
+            f Key'X (as, bs)  | modifierKeysControl mk
+                = ((delSel (as, bs), 0)
+                    , if sel_ < 0 then reverse $ take (negate sel_) as else take sel_ bs)
+            f Key'C (as, bs)  | modifierKeysControl mk
+                = (((as, bs), sel_), if sel_ < 0 then reverse $ take (negate sel_) as else take sel_ bs)
+            f Key'V (as, bs)  | modifierKeysControl mk
+                = noSel ((reverse clipboard ++) *** id $ delSel (as, bs))
+            f _             _               = (tx, clipboard)
+        txtObj' <- if tx /= txt'
+            then do
+              removeObject renderer txtObj
+              printText txt'
+            else return txtObj
+            
+        writeIORef editState ((txt', clipboard'), txtObj')
 
     startTime <- getCurrentTime
     flip fix (startTime, V2 (-0.98846203) 0.7812101,0.2,0.0) $ \loop (prevTime, V2 ofsX ofsY, scale, angle) -> do
@@ -170,19 +198,29 @@ testRender = renderText emptyBuffer
     textFragmentCtx = AccumulationContext Nothing (ColorOp textBlending (V4 True True True True) :. ZT)
     textBlending = Blend (FuncAdd, FuncAdd) ((One, One), (OneMinusSrcAlpha, One)) zero'
     textFragmentStream = Rasterize rasterCtx textStream
-    textStream = Transform vertexShader (Fetch "textMesh" Triangles (IV2F "position", IV2F "uv"))
+    textStream = Transform vertexShader (Fetch "textMesh" Triangles (IV2F "position", IV2F "uv", IV4F "color", IV4F "background"))
 
-    vertexShader attr = VertexOut point (floatV 1) ZT (Smooth uv :. ZT)
+    vertexShader attr = VertexOut point (floatV 1) ZT (Smooth uv :. Smooth color :. Smooth background :. ZT)
       where
         point = v3v4 (transform @*. v2v3 pos)
         transform = Uni (IM33F "textTransform") :: Exp V M33F
-        (pos, uv) = untup2 attr
+        (pos, uv, color, background) = untup4 attr
 
-    textFragmentShader uv = FragmentOut (pack' (V4 result result result result) :. ZT)
+    textFragmentShader (untup3 -> (uv, color, background)) = FragmentOut (char :. ZT)
       where
+        char = color @* pack' (V4 result result result result) @+ background @* (floatF 1 @- result)
         result = step distance
         distance = case useCompositeDistanceField of
             False -> SDF.sampleDistance "fontAtlas" uv
             True -> CDF.sampleDistance "fontAtlas" uv
         step = smoothstep' (floatF 0.5 @- outlineWidth) (floatF 0.5 @+ outlineWidth)
         outlineWidth = Uni (IFloat "outlineWidth") :: Exp F Float
+
+when_ b f = if b then f else id
+
+findChar c [] = Nothing
+findChar c (x:xs)
+    | x==c = Just ([], xs)
+    | otherwise = ((x:) *** id) <$> findChar c xs
+
+
