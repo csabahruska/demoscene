@@ -158,6 +158,7 @@ main = do
             f Key'Down      (as, findChar '\n' -> Just (cs, bs)) | not alt
                 = sel (negate $ length $ '\n': reverse cs) ('\n': reverse cs ++ as, bs)
             f Key'Down      (as, bs) | not shift && not alt       = noSel (as, bs)
+            f Key'A (as, bs)  | modifierKeysControl mk = (((reverse bs ++ as, ""), negate $ length $ reverse bs ++ as), Nothing)
             f Key'X (as, bs)  | modifierKeysControl mk
                 = ((delSel (as, bs), 0)
                     , getSel (as, bs))
