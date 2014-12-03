@@ -49,7 +49,8 @@ main = do
         putStrLn "Usage: HelloWorld <ttf-file> [<pixels-per-em>]"
         exitSuccess
     -}
-    let args = ["unicodefonts/DejaVuSans.ttf"]
+    --let args = ["unicodefonts/DejaVuSans.ttf"]
+    let args = ["unicodefonts/Ubuntu-Regular.ttf"]
     GLFW.init
     GLFW.defaultWindowHints
     mapM_ windowHint
@@ -105,12 +106,16 @@ main = do
 
     -- handle control buttons e.g. backspace
     setKeyCallback win $ Just $ \_ k sc ks mk -> do
-      when (k == Key'Backspace && (ks == KeyState'Pressed || ks == KeyState'Repeating)) $ do
+      when (ks == KeyState'Pressed || ks == KeyState'Repeating) $ do
         (txt,txtObj) <- readIORef editState
-        let txt' = take (length txt-1) txt
-        txtObj' <- printText txt'
-        removeObject renderer txtObj
-        writeIORef editState (txt',txtObj')
+        let txt' = case k of
+              Key'Backspace -> take (length txt-1) txt
+              Key'Enter     -> txt ++ ['\n']
+              _ -> txt
+        when (txt /= txt') $ do
+          txtObj' <- printText txt'
+          removeObject renderer txtObj
+          writeIORef editState (txt',txtObj')
 
     startTime <- getCurrentTime
     flip fix (startTime, V2 (-0.98846203) 0.7812101,0.2,0.0) $ \loop (prevTime, V2 ofsX ofsY, scale, angle) -> do
