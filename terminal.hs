@@ -19,6 +19,7 @@ import LambdaCube.GL.Mesh
 import System.Environment
 import System.Exit
 import Data.Vect
+import Data.Maybe
 import qualified Data.Vector.Storable as Vec
 
 import Data.IORef
@@ -98,7 +99,7 @@ main = do
                 ]
     txtObj0 <- printText txt0
 
-    editState <- newIORef ((txt0, ""),txtObj0)
+    editState <- newIORef (txt0,txtObj0)
 
     let uniforms = uniformSetter renderer
         letterScale = atlasLetterScale (atlasOptions atlas)
@@ -110,27 +111,29 @@ main = do
       rAlt <- (==KeyState'Pressed) <$> getKey win Key'RightAlt
       rCtrl <- (==KeyState'Pressed) <$> getKey win Key'LeftControl
       when (isPrint c && not rAlt && not rCtrl) $ do
-        ((((as,bs), sel_), clipboard),txtObj) <- readIORef editState
+        (((as,bs), sel_),txtObj) <- readIORef editState
         let txt' = ((c:) *** id $ delSel (as, bs), 0)
 
             delSel (as, bs) = (when_ (sel_ < 0) (drop $ negate sel_) as, when_ (sel_ > 0) (drop sel_) bs)
         txtObj' <- printText txt'
         removeObject renderer txtObj
-        writeIORef editState ((txt', clipboard),txtObj')
+        writeIORef editState (txt',txtObj')
 
     -- handle control buttons e.g. backspace
     setKeyCallback win $ Just $ \_ k sc ks mk -> do
       when (ks == KeyState'Pressed || ks == KeyState'Repeating) $ do
-        ((tx@(txt, sel_), clipboard), txtObj) <- readIORef editState
+        clipboard <- getClipboardString win
+        (tx@(txt, sel_), txtObj) <- readIORef editState
         let (txt', clipboard') = f k txt
 
-            noSel x = ((x, 0), clipboard)
+            noSel x = ((x, 0), Nothing)
             sel s x
                 | not shift = noSel x
-                | otherwise = ((x, s + sel_), clipboard)
+                | otherwise = ((x, s + sel_), Nothing)
             shift = modifierKeysShift mk
 
             delSel (as, bs) = (when_ (sel_ < 0) (drop $ negate sel_) as, when_ (sel_ > 0) (drop sel_) bs)
+            getSel (as, bs) = if sel_ == 0 then Nothing else Just (if sel_ < 0 then reverse $ take (negate sel_) as else take sel_ bs)
 
             f Key'Enter     (as, bs)        = noSel ('\n': as, bs)
             f Key'Backspace (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
@@ -147,19 +150,19 @@ main = do
             f Key'Down      (as, bs) | not shift        = noSel (as, bs)
             f Key'X (as, bs)  | modifierKeysControl mk
                 = ((delSel (as, bs), 0)
-                    , if sel_ < 0 then reverse $ take (negate sel_) as else take sel_ bs)
+                    , getSel (as, bs))
             f Key'C (as, bs)  | modifierKeysControl mk
-                = (((as, bs), sel_), if sel_ < 0 then reverse $ take (negate sel_) as else take sel_ bs)
+                = (((as, bs), sel_), getSel (as, bs))
             f Key'V (as, bs)  | modifierKeysControl mk
-                = noSel ((reverse clipboard ++) *** id $ delSel (as, bs))
-            f _             _               = (tx, clipboard)
+                = noSel ((reverse (fromMaybe "" clipboard) ++) *** id $ delSel (as, bs))
+            f _             _               = (tx, Nothing)
         txtObj' <- if tx /= txt'
             then do
               removeObject renderer txtObj
               printText txt'
             else return txtObj
-            
-        writeIORef editState ((txt', clipboard'), txtObj')
+        maybe (return ()) (setClipboardString win) clipboard'
+        writeIORef editState (txt', txtObj')
 
     startTime <- getCurrentTime
     flip fix (startTime, V2 (-0.98846203) 0.7812101,0.2,0.0) $ \loop (prevTime, V2 ofsX ofsY, scale, angle) -> do
