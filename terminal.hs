@@ -79,10 +79,17 @@ main = do
           let col i (splitAt i -> (as, bs)) = map ((,) (V4 0 0 0 0, V4 0 1 0 1)) as ++ map ((,) (V4 0 0 0 0, V4 1 1 1 1)) bs
               txt_ = reverse (col (max 0 $ negate e) xs) ++ ((V4 0 0 0 0, V4 1 0 0 1), '|') : col (max 0 e) ys
               txt = map snd txt_
-              colors = Vec.fromList . concatMap (replicate 6) $ map (snd . fst) $ filter (not . isSpace . snd) txt_ :: Vec.Vector V4F
-              background = Vec.fromList . concatMap (replicate 6) $ map (fst . fst) $ filter (not . isSpace . snd) txt_ :: Vec.Vector V4F
           textMesh_ <- buildTextMesh atlas textStyle txt
-          let textMesh = textMesh_ { mAttributes = T.insert "color" (A_V4F colors) $ T.insert "background" (A_V4F background) $ mAttributes textMesh_ }
+          let Just (A_V2F pos) = T.lookup "position" $ mAttributes textMesh_
+              hackSize c
+                 | c `elem` ":;\"éáűőú≤≥" = 2
+                 | isSpace c = 0
+                 | otherwise = 1
+              hack t@(_, c) = replicate (hackSize c) t
+              bs = take (Vec.length pos) $ map fst (concatMap (replicate 6) $ concatMap hack txt_) ++ repeat (V4 0 0 0 0, V4 1 1 1 1)
+              colors = Vec.fromList $ map snd bs
+              background = Vec.fromList $ map fst bs
+              textMesh = textMesh_ { mAttributes = T.insert "color" (A_V4F colors) $ T.insert "background" (A_V4F background) $ mAttributes textMesh_ }
           textBuffer <- compileMesh textMesh
           addMesh renderer "textMesh" textBuffer []
 
@@ -121,6 +128,7 @@ main = do
 
     -- handle control buttons e.g. backspace
     setKeyCallback win $ Just $ \_ k sc ks mk -> do
+      alt <- (==KeyState'Pressed) <$> getKey win Key'RightAlt
       when (ks == KeyState'Pressed || ks == KeyState'Repeating) $ do
         clipboard <- getClipboardString win
         (tx@(txt, sel_), txtObj) <- readIORef editState
@@ -140,14 +148,16 @@ main = do
             f Key'Backspace (_: as, bs)     = noSel (as, bs)
             f Key'Delete    (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
             f Key'Delete    (as, _: bs)     = noSel (as, bs)
-            f Key'Left      (a: as, bs)     = sel   1  (as, a: bs)
-            f Key'Left      (as, bs) | not shift       = noSel (as, bs)
-            f Key'Right     (as, b: bs)     = sel (-1) (b: as, bs)
-            f Key'Right     (as, bs) | not shift        = noSel (as, bs)
-            f Key'Up        (findChar '\n' -> Just (cs, as), bs) = sel (length $ '\n': reverse cs) (as, '\n': reverse cs ++ bs)
-            f Key'Up        (as, bs) | not shift        = noSel (as, bs)
-            f Key'Down      (as, findChar '\n' -> Just (cs, bs)) = sel (negate $ length $ '\n': reverse cs) ('\n': reverse cs ++ as, bs)
-            f Key'Down      (as, bs) | not shift        = noSel (as, bs)
+            f Key'Left      (a: as, bs) | not alt    = sel   1  (as, a: bs)
+            f Key'Left      (as, bs) | not shift && not alt       = noSel (as, bs)
+            f Key'Right     (as, b: bs) | not alt     = sel (-1) (b: as, bs)
+            f Key'Right     (as, bs) | not shift && not alt       = noSel (as, bs)
+            f Key'Up        (findChar '\n' -> Just (cs, as), bs) | not alt
+                = sel (length $ '\n': reverse cs) (as, '\n': reverse cs ++ bs)
+            f Key'Up        (as, bs) | not shift && not alt       = noSel (as, bs)
+            f Key'Down      (as, findChar '\n' -> Just (cs, bs)) | not alt
+                = sel (negate $ length $ '\n': reverse cs) ('\n': reverse cs ++ as, bs)
+            f Key'Down      (as, bs) | not shift && not alt       = noSel (as, bs)
             f Key'X (as, bs)  | modifierKeysControl mk
                 = ((delSel (as, bs), 0)
                     , getSel (as, bs))
