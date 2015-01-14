@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 
 import System.Environment
 import "GLFW-b" Graphics.UI.GLFW as GLFW
@@ -446,7 +447,7 @@ data Event
     | ExitEvent
     | PlaySound Sample
     | StopSound Sample
-    | HaltEvent
+    | HaltEvent Bool
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
@@ -619,7 +620,7 @@ main' wires = do
         addStreams t c = case c of
             WHorizontal{..} -> (maximum *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
-            WHalt -> return (t, [(t, HaltEvent)])
+            WHalt{..} -> return (t, [(t, HaltEvent completeHalt)])
             WDelay{..} -> return (t + wDuration, [])
             WSound{..} -> do
                 smp <- sampleFromFile "music/Take_Them.ogg" 1
@@ -687,42 +688,56 @@ main' wires = do
 
         pm  = perspective 0.1 100 (pi/4) (1280 / 720)
 
+        getStartTime x = case x of
+            Right t -> Just (True, t)
+            Left (False, t, _) -> Just (False, t)
+            _ -> Nothing
+
         loop :: Camera -> [(Time, Event)] -> IO ()
         loop camCurve schedule = do
-          curTime <- getCurrentTime
-          startTime <- readIORef timeRef
-          case startTime of
-           Right startTime -> do
+          tr <- readIORef timeRef
+          cont <- case getStartTime tr of
+           Just (handleevents, startTime) -> do
+            curTime <- getCurrentTime
             let t' = realToFrac $ curTime `diffUTCTime` startTime
             let t = t'
             let (old_, schedule_) = span (\(x, _) -> compare x t' == LT) schedule
                 old = map snd old_
 
-            let halt = do
-                    curTime1 <- getCurrentTime
-                    putStrLn "waiting for space key press"
-                    writeIORef timeRef $ Left (startTime, curTime1)
+            cont <- if handleevents then do
+                case [complete | HaltEvent complete <- old] of
+                    [] -> return ()
+                    bs -> do
+                        curTime1 <- getCurrentTime
+                        putStrLn "waiting for space key press"
+                        writeIORef timeRef $ Left (or bs, startTime, curTime1)
 
-            sequence_ [halt | HaltEvent <- old]
-            newEvents <- forM old $ \event -> do
-                case event of
-                    TurnOn obj -> enableObject obj True >> return []
-                    TurnOff obj -> enableObject obj False >> return []
-                    RecurrentEvent end action ->
-                        if (compare' (Just t') end == LT)
-                        then action t' >> return [(t', RecurrentEvent end action)]
-                        else return []
-                    _ -> return []
-            let schedule' = foldr merge [] newEvents `merge` schedule_
-                camCurve' :: Camera
-                camCurve' = maybe camCurve (\(SetCam c) -> c) $ listToMaybe [ SetCam c | SetCam c <- reverse old]
+                sequence_ [soundStop smp | StopSound smp <- old]
+                sequence_ [soundPlay smp 1 1 0 1 | PlaySound smp <- old]
+
+                newEvents <- forM old $ \event -> do
+                    case event of
+                        TurnOn obj -> enableObject obj True >> return []
+                        TurnOff obj -> enableObject obj False >> return []
+                        RecurrentEvent end action ->
+                            if (compare' (Just t') end == LT)
+                            then action t' >> return [(t', RecurrentEvent end action)]
+                            else return []
+                        _ -> return []
+
+                let schedule' = foldr merge [] newEvents `merge` schedule_
+                    camCurve' :: Camera
+                    camCurve' = maybe camCurve (\(SetCam c) -> c) $ listToMaybe [ SetCam c | SetCam c <- reverse old]
+
+                return $ unless (or [True | ExitEvent <- old]) $ loop camCurve' schedule'
+
+              else return $ loop camCurve schedule
+
             let angle = pi / 2 * realToFrac t * 0.3
                 mm = fromProjective $ rotationEuler $ Vec3 angle 0 0
                 cam = case camCurve of
                     CamCurve camCurve -> cameraToMat4 $ curveToCameraPath camCurve (0.05 * realToFrac t)
                     CamMat cm -> mm .*. cm
-            sequence_ [soundStop smp | StopSound smp <- old]
-            sequence_ [soundPlay smp 1 1 0 1 | PlaySound smp <- old]
 
             mvp $! mat4ToM44F $! cam .*. pm
             mv $! mat4ToM44F $! cam
@@ -734,21 +749,26 @@ main' wires = do
             uniformBool "on" uniformMap $ ti `mod` 5 == 0
             uniformFloat "down" uniformMap $ s
             uniformFloat "up" uniformMap $ (s+0.01)
-            render renderer
-            GLFW.swapBuffers win
-            pollEvents
-            k <- GLFW.getKey win Key'Escape
-            unless (k == KeyState'Pressed || or [True | ExitEvent <- old]) $ loop camCurve' schedule'
 
-           Left (start, curTime1) -> do
-            pollEvents
+            return cont
+
+           Nothing ->
+            return $ loop camCurve schedule
+
+          render renderer
+          GLFW.swapBuffers win
+
+          pollEvents
+          case tr of
+           Left (_, start, curTime1) -> do
             k <- GLFW.getKey win Key'Space
             when (k == KeyState'Pressed) $ do
                 curTime2 <- getCurrentTime
                 writeIORef timeRef $ Right $ addUTCTime (curTime2 `diffUTCTime` curTime1) start
+           _ -> return ()
 
-            k <- GLFW.getKey win Key'Escape
-            unless (k == KeyState'Pressed) $ loop camCurve schedule
+          k <- GLFW.getKey win Key'Escape
+          unless (k == KeyState'Pressed)    cont
 
     writeIORef timeRef . Right =<< getCurrentTime
 

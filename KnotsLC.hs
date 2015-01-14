@@ -10,6 +10,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
 module KnotsLC where
 
 import Data.Maybe
@@ -129,6 +130,8 @@ data Wire_ dur i e
         { wDuration  :: dur
         }
     | WHalt
+        { completeHalt :: Bool      -- False: time goes on and reset when spaces is pressed
+        }
     | WSound
         { wDuration  :: dur
         , wSample :: FilePath
@@ -174,7 +177,7 @@ trav = \case
       where
         ff True = id
         ff False = const 0
-    WHalt -> PC (0, False) $ \_ -> WHalt
+    WHalt{..} -> PC (0, False) $ \_ -> WHalt{..}
     w@(wDuration -> Nothing) -> PC (0, True)  $ \t -> w { wDuration = t }
     w@(wDuration -> Just d)  -> PC (d, False) $ \_ -> w { wDuration = d }
 
@@ -209,7 +212,7 @@ transWire = \case
     WDelay t        -> pure $ WDelay t
     WCamera dur ws  -> pure $ WCamera dur ws
     WSound a b      -> pure $ WSound a b
-    WHalt           -> pure WHalt
+    WHalt{..}       -> pure WHalt{..}
 
 newid = do
     st <- get
