@@ -446,6 +446,7 @@ data Event
     | ExitEvent
     | PlaySound Sample
     | StopSound Sample
+    | HaltEvent
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
@@ -618,6 +619,7 @@ main' wires = do
         addStreams t c = case c of
             WHorizontal{..} -> (maximum *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
+            WHalt -> return (t, [(t, HaltEvent)])
             WDelay{..} -> return (t + wDuration, [])
             WSound{..} -> do
                 smp <- sampleFromFile "music/Take_Them.ogg" 1
@@ -676,7 +678,7 @@ main' wires = do
 
     (_end, schedule) <- addStreams 0 wires
 
-    timeRef <- newIORef =<< getCurrentTime
+    timeRef <- newIORef $ error "impossible"
 
     let
         camCurve :: Camera
@@ -684,14 +686,24 @@ main' wires = do
         camCurve = CamMat cm -- CamCurve $ Knot.magnify 1 . Knot.lissajousKnot (Knot.V3 3 5 7) (Knot.V3 0.7 0.1 0)
 
         pm  = perspective 0.1 100 (pi/4) (1280 / 720)
+
         loop :: Camera -> [(Time, Event)] -> IO ()
         loop camCurve schedule = do
-            curTime <- getCurrentTime
-            satrtTime <- readIORef timeRef
-            let t' = realToFrac $ curTime `diffUTCTime` satrtTime
+          curTime <- getCurrentTime
+          startTime <- readIORef timeRef
+          case startTime of
+           Right startTime -> do
+            let t' = realToFrac $ curTime `diffUTCTime` startTime
             let t = t'
             let (old_, schedule_) = span (\(x, _) -> compare x t' == LT) schedule
                 old = map snd old_
+
+            let halt = do
+                    curTime1 <- getCurrentTime
+                    putStrLn "waiting for space key press"
+                    writeIORef timeRef $ Left (startTime, curTime1)
+
+            sequence_ [halt | HaltEvent <- old]
             newEvents <- forM old $ \event -> do
                 case event of
                     TurnOn obj -> enableObject obj True >> return []
@@ -725,11 +737,20 @@ main' wires = do
             render renderer
             GLFW.swapBuffers win
             pollEvents
-
             k <- GLFW.getKey win Key'Escape
             unless (k == KeyState'Pressed || or [True | ExitEvent <- old]) $ loop camCurve' schedule'
 
-    writeIORef timeRef =<< getCurrentTime
+           Left (start, curTime1) -> do
+            pollEvents
+            k <- GLFW.getKey win Key'Space
+            when (k == KeyState'Pressed) $ do
+                curTime2 <- getCurrentTime
+                writeIORef timeRef $ Right $ addUTCTime (curTime2 `diffUTCTime` curTime1) start
+
+            k <- GLFW.getKey win Key'Escape
+            unless (k == KeyState'Pressed) $ loop camCurve schedule
+
+    writeIORef timeRef . Right =<< getCurrentTime
 
     loop camCurve schedule
 
