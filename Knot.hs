@@ -6,11 +6,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Knot where
 
 import Data.Foldable
-import Data.Ratio
+--import Data.Ratio
 import Data.Traversable
 import Control.Applicative
 import Control.Monad
@@ -22,6 +25,8 @@ import Numeric.AD
 import Numeric.AD.Internal.Reverse as Reverse (Reverse(Lift), Tape)
 import Numeric.AD.Internal.Forward as Forward (Forward(Lift))
 import Numeric.AD.Internal.Type (AD(AD))
+
+import AD
 
 --------------------- Linear algebra for 2 and 3 dimensional vectors and matrices
 
@@ -106,6 +111,10 @@ instance Timed a => Timed (Forward a) where
 instance (Timed a, Reifies s Tape) => Timed (Reverse s a) where
     type TimedF (Reverse s a) = TimedF a
     time_ = Reverse.Lift <$> time_
+
+instance Timed Exp where
+    type TimedF Exp = Identity
+    time_ = Identity "time"
 
 ------------------------------- Space transformations
 

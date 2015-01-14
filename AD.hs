@@ -14,21 +14,21 @@
 module AD where
 
 import qualified Data.Map as Map
-import Data.Function
-import Data.List
+--import Data.Function
+--import Data.List
 import Data.String
-import Data.Monoid
+--import Data.Monoid
 import Data.Traversable
-import Data.Reflection (Reifies)
-import Control.Applicative
+--import Data.Reflection (Reifies)
+--import Control.Applicative
 import qualified Data.Traversable as T
 import qualified Data.Foldable as F
 
-import Numeric.AD.Internal.Reverse (Reverse, Tape)
-import Numeric.AD
+--import Numeric.AD.Internal.Reverse (Tape)
+import Numeric.AD ()
 
 import Data.Reify
-import Data.Reify.Graph
+--import Data.Reify.Graph
 
 newtype Mu a = In (a (Mu a))
 
@@ -92,11 +92,11 @@ pattern One <- C 1
 instance IsString Exp where
     fromString = Var
 
-withC f g (C x) = C $ f x
-withC f g x = g x
+withC f _ (C x) = C $ f x
+withC _ g x = g x
 
-flipC f g x y@(C _) = g y x
-flipC f g x y = f x y
+flipC _ g x y@(C _) = g y x
+flipC f _ x y = f x y
 
 add = flipC f f where
     f (C a) (C b) = C $ a + b
@@ -115,7 +115,7 @@ recip_ a = Recip a
 
 mul = flipC f f where
     f (C a) (C b) = C $ a * b
-    f Zero x = 0
+    f Zero _ = 0
     f One x = x
     f (C a) (Mul (C b) c) = Mul (C $ a * b) c
     f (Mul (C a) a') (Mul (C b) c) = Mul (C $ a * b) $ a' * c

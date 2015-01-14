@@ -14,11 +14,11 @@ import Control.Applicative hiding (Const)
 import Data.Monoid
 import Data.Vect
 import Data.Function
-import qualified Data.Traversable as Trav
+--import qualified Data.Traversable as Trav
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.Trie as T
-import qualified Data.Vector.Storable as SV
-import Control.Concurrent
+--import qualified Data.Trie as T
+--import qualified Data.Vector.Storable as SV
+--import Control.Concurrent
 import Data.Time.Clock
 import Data.IORef
 
@@ -26,9 +26,9 @@ import Sound.ProteaAudio
 
 import Geometry
 import Utility
-import Blur
-import Scanlines
-import Vignette
+--import Blur
+--import Scanlines
+--import Vignette
 
 import LambdaCube.GL
 import LambdaCube.GL.Mesh
@@ -47,7 +47,7 @@ import Program
 import qualified Knot
 
 import Math.Noise hiding (zero)
-import Math.Noise.Modules.Billow
+--import Math.Noise.Modules.Billow
 import Data.Maybe
 import Data.Bitmap.Pure
 
@@ -88,9 +88,9 @@ distortFX img = Accumulate fragCtx PassAll frag rast clear
         -}
         V4 tR tG tB _ = unpack' $ smp' img (uv @+ rot @* off)
         mask = pack' $ V4 (floatF 0.1) (floatF 0.5) (floatF 1) (floatF 1)
-        V4 r' g b a = unpack' texel
+        V4 _r g _b _a = unpack' texel
         r = g
-        V2 u v = unpack' uv
+--        V2 u v = unpack' uv
         uv = uv' @* floatF 0.5 @+ floatF 0.5
         off = (pack' $ V2 r (r @* r)) @* (floatF 0.1 @+ floatF 0.32 @* (sin' (time @* floatF 6) :: Exp F Float))
         t = time @* floatF 10
@@ -196,21 +196,21 @@ texturing2D wire@(Wire2D {..})
                 V3 x y z = unpack' uv
 
 --            fragmentShader :: Exp F (V2F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-            fragmentShader (untup5 -> (uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ (if wSimpleColor then clr else clr @* dot' n dlight) :. ZT
+            fragmentShader (untup5 -> (_uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ (if wSimpleColor then clr else clr @* dot' n dlight) :. ZT
               where
-                tex = {-imgToTex textImg -} TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
+--                tex = {-imgToTex textImg -} TextureSlot "myTextureSampler" $ Texture2D (Float RGBA) n1
                 clr = case unpack' col of (V3 r g b) -> pack' $ V4 r g b alpha -- color tex uv
                 
                 pos = v4v3 pos'
                 pointlight = v3FF $ V3 1 1 1
-                pointlight1 = v3FF $ V3 (-5) (-1) 1
+--                pointlight1 = v3FF $ V3 (-5) (-1) 1
                 dlight = normalize' $ prj1 pointlight @- pos
-                dlight1 = normalize' $ prj1 pointlight1 @- pos
-                color0 = v4FF $ V4 0 0 1 1
-                color1 = v4FF $ V4 1 0 0 1
+--                dlight1 = normalize' $ prj1 pointlight1 @- pos
+--                color0 = v4FF $ V4 0 0 1 1
+--                color1 = v4FF $ V4 1 0 0 1
                 n = normalize' ns
-                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
-                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
+--                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
+--                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
 
         _ ->  VertFrag vertexShader fragmentShader
           where
@@ -256,7 +256,7 @@ texturing2D wire@(Wire2D {..})
     modelView = Uni (IM44F "MV")
 
     prj1 a = drop4 $ modelView @*. snoc a 1
-    prj0 a = drop4 $ modelView @*. snoc a 0
+--    prj0 a = drop4 $ modelView @*. snoc a 0
 
 texturingParticle :: Wire Int (Exp V Float) -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Point (V3F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
 texturingParticle wire@(WParticle {..})
@@ -283,21 +283,21 @@ texturingParticle wire@(WParticle {..})
                 V3 x y z = unpack' uv
 
 --            fragmentShader :: Exp F (V2F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-            fragmentShader (untup5 -> (uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ (if wSimpleColor then clr else clr @* dot' n dlight) :. ZT
+            fragmentShader (untup5 -> (_uv, ns, pos', col, alpha)) = FragmentOutRastDepth $ (if wSimpleColor then clr else clr @* dot' n dlight) :. ZT
               where
                 --tex = {-imgToTex textImg -} TextureSlot "ParticleTexture" $ Texture2D (Float RGBA) n1
                 clr = case unpack' col of (V3 r g b) -> pack' $ V4 r g b alpha -- color tex uv
                 
                 pos = v4v3 pos'
                 pointlight = v3FF $ V3 1 1 1
-                pointlight1 = v3FF $ V3 (-5) (-1) 1
+--                pointlight1 = v3FF $ V3 (-5) (-1) 1
                 dlight = normalize' $ prj1 pointlight @- pos
-                dlight1 = normalize' $ prj1 pointlight1 @- pos
-                color0 = v4FF $ V4 0 0 1 1
-                color1 = v4FF $ V4 1 0 0 1
+--                dlight1 = normalize' $ prj1 pointlight1 @- pos
+--                color0 = v4FF $ V4 0 0 1 1
+--                color1 = v4FF $ V4 1 0 0 1
                 n = normalize' ns
-                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
-                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
+--                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
+--                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
 
         _ ->  VertFrag vertexShader fragmentShader
           where
@@ -319,24 +319,24 @@ texturingParticle wire@(WParticle {..})
                 V3 x y z = unpack' uv
 
             fragmentShader :: Exp F (V3F,V3F,V4F,Float) -> FragmentOut (Depth Float :+: Color V4F :+: ZZ)
-            fragmentShader (untup4 -> (uv', ns, pos', alpha)) = FragmentOutRastDepth $ {-c'-}tstcolor :. ZT
+            fragmentShader (untup4 -> (_uv', _ns, _pos', _alpha)) = FragmentOutRastDepth $ {-c'-}tstcolor :. ZT
               where
-                uv = v3v2 uv'
+--                uv = v3v2 uv'
                 tex = {-imgToTex textImg -} TextureSlot "ParticleTexture" $ Texture2D (Float RGBA) n1
                 clr = color tex pointCoord'
-                V2 cu cv = unpack' pointCoord'
+--                V2 cu cv = unpack' pointCoord'
                 tstcolor = clr--pack' $ V4 cu cv (floatF 0) (floatF 1)
 
-                pos = v4v3 pos'
-                pointlight = v3FF $ V3 1 1 1
-                pointlight1 = v3FF $ V3 (-5) (-1) 1
-                dlight = normalize' $ prj1 pointlight @- pos
-                dlight1 = normalize' $ prj1 pointlight1 @- pos
-                color0 = v4FF $ V4 0 0 1 1
-                color1 = v4FF $ V4 1 0 0 1
-                n = normalize' ns
-                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
-                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
+--                pos = v4v3 pos'
+--                pointlight = v3FF $ V3 1 1 1
+--                pointlight1 = v3FF $ V3 (-5) (-1) 1
+--                dlight = normalize' $ prj1 pointlight @- pos
+--                dlight1 = normalize' $ prj1 pointlight1 @- pos
+--                color0 = v4FF $ V4 0 0 1 1
+--                color1 = v4FF $ V4 1 0 0 1
+--                n = normalize' ns
+--                c = clr @* ((color0 @* dot' n dlight) @+ (color1 @* dot' n dlight1))
+--                c' = case unpack' c of (V4 r g b _) -> pack' $ V4 r g b alpha
 
     modelViewProj :: Exp f M44F
     modelViewProj = Uni (IM44F "MVP")
@@ -345,7 +345,7 @@ texturingParticle wire@(WParticle {..})
     modelView = Uni (IM44F "MV")
 
     prj1 a = drop4 $ modelView @*. snoc a 1
-    prj0 a = drop4 $ modelView @*. snoc a 0
+--    prj0 a = drop4 $ modelView @*. snoc a 0
 
 
 
@@ -369,7 +369,7 @@ texturing2D_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumula
     primitiveStream = Transform vertexShader objs
 
 texturingParticle_ :: Wire Int (Exp V Float) -> VertFrag -> Exp Obj (FrameBuffer 1 (Float,V4F)) -> Exp Obj (VertexStream Point (V3F)) -> Exp Obj (FrameBuffer 1 (Float,V4F))
-texturingParticle_ wire (VertFrag vertexShader fragmentShader) emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
+texturingParticle_ _ (VertFrag vertexShader fragmentShader) emptyFB objs = Accumulate fragmentCtx PassAll fragmentShader fragmentStream emptyFB
   where
     rasterCtx :: RasterContext Point
     rasterCtx = PointCtx ProgramPointSize 10 UpperLeft
@@ -450,7 +450,7 @@ data Event
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
 
-    GLFW.init
+    _ <- GLFW.init
 
     args <- getArgs
     monitor <- case args of
@@ -473,14 +473,15 @@ main' wires = do
 
         frameImage' = PrjFrameBuffer "" tix0 $ addWire emptyFB wires
 
-        frameImage :: Exp Obj (Image 1 V4F)
-        frameImage = renderScreen $ (FragmentOut.(:.ZT).fxVignette vignette frameImage')
+--        frameImage :: Exp Obj (Image 1 V4F)
+--        frameImage = renderScreen $ (FragmentOut.(:.ZT).fxVignette vignette frameImage')
         --frameImage = renderScreen $ (FragmentOut.(:.ZT).fxScanlines sl frameImage')
+{-
         sl    = scanlines { scanlinesFrequency = floatF 128
                           , scanlinesHigh = Const $ V4 0.9 1 1 1
                           , scanlinesLow = Const $ V4 0.45 0.5 0.5 1
                           }
-
+-}
         addWire fb wire@(Wire1D {..}) = texturing1D wire fb (Fetch (streamName wInfo) Triangles (IV3F "position"))
         addWire fb wire@(Wire2D {..}) = texturing2D wire fb (Fetch (streamName wInfo) Triangles (IV3F "position"))
         addWire fb wire@(WParticle {..}) = texturingParticle wire fb (Fetch (streamName wInfo) Points (IV3F "position"))
@@ -505,7 +506,7 @@ main' wires = do
       atlas <- createFontAtlas font fontRenderer fontOptions { atlasLetterScale = letterScale }
       textMesh <- buildTextMesh atlas textStyle "Loading..."
       textBuffer <- compileMesh textMesh
-      textObject <- addMesh loadingRenderer "textMesh" textBuffer []
+      _textObject <- addMesh loadingRenderer "textMesh" textBuffer []
 
       let uniforms = uniformSetter loadingRenderer
           letterScale = atlasLetterScale (atlasOptions atlas)
@@ -538,22 +539,22 @@ main' wires = do
     textMesh <- buildTextMesh atlas textStyle "Hello, gorgeous world!"
 
     textBuffer <- compileMesh textMesh
-    --textObject <- addMesh renderer "textMesh" textBuffer ["textTransform"]
+    _textObject <- addMesh renderer "textMesh" textBuffer ["textTransform"]
 
     let uniforms = uniformSetter renderer
         --text1Uniforms = objectUniformSetter textObject
         letterScale = atlasLetterScale (atlasOptions atlas)
         letterPadding = atlasLetterPadding (atlasOptions atlas)
         scale = 0.1
-        ofsX = -0.9
-        ofsY = 0
+--        ofsX = -0.9
+--        ofsY = 0
     uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
 
     --uniformM33F "textTransform" text1Uniforms (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
     uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (720 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
 
     -- distorsion
-    let p   = perlin
+    let --p   = perlin
         clamp :: Double -> Word8
         clamp = floor . max 0 . min 255
         calc noiseF w h i j = (\v ->  (v + 1.0) * 127.5 ) $ noiseClampedVal
@@ -642,7 +643,7 @@ main' wires = do
                           action o time = do
                             let textUniforms = objectUniformSetter o
                                 fadeTime = 1
-                                locTime = time - tStart
+--                                locTime = time - tStart
                                 fadeIn = tStart + fadeTime
                                 fadeOut = tEnd - fadeTime
                                 alpha = realToFrac $ case time < fadeIn of
@@ -747,14 +748,14 @@ main' wires = do
 --    finishAudio
 
 mergeBy :: (a -> a -> Ordering) -> [a] -> [a] -> [a]
-mergeBy f [] xs = xs
-mergeBy f xs [] = xs
+mergeBy _ [] xs = xs
+mergeBy _ xs [] = xs
 mergeBy f (x:xs) (y:ys) = case f x y of
     LT -> x: mergeBy f xs (y:ys)
     _  -> y: mergeBy f (x:xs) ys
 
 mapAccumLM :: Monad m => (st -> a -> m (st, b)) -> st -> [a] -> m (st, [b])
-mapAccumLM f x [] = return (x, [])
+mapAccumLM _ x [] = return (x, [])
 mapAccumLM f x (y:ys) = do
     (x', y') <- f x y
     (x'', ys') <- mapAccumLM f x' ys

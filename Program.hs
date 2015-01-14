@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Program where
 
-import Data.Maybe
+--import Data.Maybe
 import Control.Applicative hiding (Const)
 import Control.Monad.Identity
 
@@ -15,7 +15,7 @@ import Data.Vect
 import Utility
 import KnotsLC
 
-import LambdaCube.GL hiding (Exp, Var, Let, V3, V2)
+--import LambdaCube.GL hiding (Exp, Var, Let, V3, V2)
 import qualified LambdaCube.GL as LC
 
 ---------------------
@@ -68,7 +68,7 @@ wires = program $ WHorizontal
       , WFadeOut (Just 5)
       ]
     , wire2DNorm False 60 16 $ tubularPatch (mulSV3 2 . unKnot) (mulSV3 (0.1 * (sin (4 * time) + 5)) . unKnot)
-    , (wire2DNormAlpha True 2000 3 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ \(V2 x y) -> V3 y 0.5 0.5) Nothing) {wSimpleColor = True}
+    , (wire2DNormAlpha True 2000 3 (tubularNeighbourhood (helix 2 0) . translateZ (0.2 * sin (6 * time)) . twistZ 1 . magnifyZ 50 . magnifyX 0.2 . translateY 0.65 . translateX (-0.5) . planeZX) (Just $ \(V2 _ y) -> V3 y 0.5 0.5) Nothing) {wSimpleColor = True}
 --    wire2DNorm False 200 20 $ magnifyZ 3 . cylinderZ 0.3
 --    wire2DNorm False 200 20 $ twistZ 1 . translateX 0.5 . magnifyZ 3 . cylinderZ 0.1
 --    wire1D 100 $ translateZ (-1.5) . helix 0.3 0.5 . (10 *)
@@ -99,7 +99,7 @@ wires = program $ WHorizontal
             [ delay 30
             , cyl 10000 (0.1, 0.2, 200)
             , wire2DNormAlpha True 1000 10 (magnifyZ 60 . rotateXY time . twistZ 1 . translateY (-0.5) . planeZY)
-                                (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 x y) -> y)
+                                (Just $ \(V2 x y) -> V3 x 1 y) (Just $ \(V2 _ y) -> y)
             ]
         , transW (middleSin $ archimedeanSpiralN 0.02 0) $ WHorizontal
             [ delay 10
@@ -149,11 +149,11 @@ wires = program $ WHorizontal
   where
     cyl :: Int -> (forall t . Timed t => (t, t, t)) -> Wire_ (Maybe x) () Exp
 --    cyl n (a, b, c) = wire1D n $ helix a b . (c *)
-    cyl n tup = (wire2DNormAlpha True n 3 (f tup) (Just $ \(V2 x y) -> V3 1 0.9 (0.5 * sin (2 * c * x) + 0.5)) Nothing) {wSimpleColor = True}
+    cyl n tup = (wire2DNormAlpha True n 3 (f tup) (Just $ \(V2 x _) -> V3 1 0.9 (0.5 * sin (2 * c * x) + 0.5)) Nothing) {wSimpleColor = True}
       where
         f (a, b, c) = twistZ (helixTurn a b / helixHeight a b) . magnifyZ (helixHeight a b * c) . translateY a . magnifyX 0.01 . translateX (-0.5) . planeZX
-          where
-            turn = c * helixTurn a b
+--          where
+--            turn = c * helixTurn a b
 
     middleSin :: Curve Identity -> SpaceTr Identity
     middleSin c = magnify 1.5 . tubularNeighbourhood (liftA2 (+) id ((\t -> V3 0 0 t) . (/15) . sin . (*6) . (+ (0.5 * time)) . normV3) . c)

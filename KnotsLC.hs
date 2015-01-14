@@ -20,10 +20,10 @@ import Data.Functor.Constant
 import Control.Applicative hiding (Const)
 import Control.Monad.Writer hiding (Product)
 import Control.Monad.State
-import Control.Monad.Reader
+--import Control.Monad.Reader
 import Control.Monad.Identity
 import Control.Monad.Cont
-import Control.Arrow
+--import Control.Arrow
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.ByteString.Char8 as BS
@@ -32,7 +32,7 @@ import Knot
 import AD
 import Data.Reify.Graph
 import Data.Vect
-import Utility
+--import Utility
 
 import LambdaCube.GL hiding (Exp, Var, Let, V3, V2)
 import qualified LambdaCube.GL as LC
@@ -155,8 +155,8 @@ wParticle i j k v c = WParticle () Nothing False i j k v Nothing c Nothing
 wire2DNormAlpha :: Bool -> Int -> Int -> Patch Identity -> Maybe (V2 Exp -> V3 Exp) -> Maybe (V2 Exp -> Exp) -> Wire_ (Maybe t) () Exp
 wire2DNormAlpha t i j v c a = Wire2D () Nothing t False i j (to2 v) (Just $ to2 $ normalPatch v) (to2 <$> c) (to2 <$> a)
 
-to1 f (V3 x y z) = f x
-to2 f (V3 x y z) = f (V2 x y)
+to1 f (V3 x _ _) = f x
+to2 f (V3 x y _) = f (V2 x y)
 
 
 timing :: RealFrac t => Wire_ (Maybe t) i e -> Wire_ t i e
@@ -174,7 +174,7 @@ trav = \case
         ff True = id
         ff False = const 0
     w@(wDuration -> Nothing) -> PC (0, True)  $ \t -> w { wDuration = t }
-    w@(wDuration -> Just d)  -> PC (d, False) $ \t -> w { wDuration = d }
+    w@(wDuration -> Just d)  -> PC (d, False) $ \_ -> w { wDuration = d }
 
 transW :: (V3 e -> V3 e) -> Wire_ t i e -> Wire_ t i e
 transW tr = \case
@@ -194,13 +194,13 @@ instance Real d => Monoid (Maximum d) where
 
 transWire :: Wire_ t () Exp -> StateT Int IO (Wire_ t Int ExpV1)
 transWire = \case
-    Wire1D info d i f
+    Wire1D _ d i f
         -> newid >>= \id -> Wire1D <$> pure id <*> pure d <*> pure i <*> (lift . transFun3 "t" "s" "k") f
-    Wire2D info d b sc i j v n c a
+    Wire2D _ d b sc i j v n c a
         -> newid >>= \id -> Wire2D <$> pure id <*> pure d <*> pure b <*> pure sc <*> pure i <*> pure j <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
-    WParticle info d sc i j k v n c a
+    WParticle _ d sc i j k v n c a
         -> newid >>= \id -> WParticle <$> pure id <*> pure d <*> pure sc <*> pure i <*> pure j <*> pure k <*> lift (transFun3 "t" "s" "k" v) <*> traverse (lift . transFun3 "t" "s" "k") n <*> traverse (lift . transFun3 "t" "s" "k") c <*> (traverse) (lift . transFun3_ "t" "s" "k") a
-    WText2D info dur ws txt -> newid >>= \id -> WText2D <$> pure id <*> pure dur <*> pure ws <*> pure txt
+    WText2D _ dur ws txt -> newid >>= \id -> WText2D <$> pure id <*> pure dur <*> pure ws <*> pure txt
     WHorizontal ws  -> WHorizontal <$> traverse transWire ws
     WVertical ws    -> WVertical <$> traverse transWire ws
     WFadeOut ws     -> pure $ WFadeOut ws
@@ -253,13 +253,9 @@ transExp x = (\(Graph rx x) env -> transExp_ x env (IM.map Left $ IM.fromList rx
             ASinh_ e    -> asinh' e
             ACosh_ e    -> acosh' e
             ATanh_ e    -> atanh' e
-            Exp_ e    -> exp' e
+            Exp_ e      -> exp' e
             Log_ e      -> log' e
 
-
-instance Timed Exp where
-    type TimedF Exp = Identity
-    time_ = Identity "time"
 
 testComplexity = (normalPatch $ tubularPatch (torusKnot 1 5) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp
 testComplexity' = (normalPatch $ tubularPatch (mulSV3 0.1 . unKnot) (mulSV3 0.1 . unKnot)) $ V2 "x" "y"  :: V3 Exp

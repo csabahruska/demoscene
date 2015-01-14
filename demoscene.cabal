@@ -85,4 +85,5 @@ executable knotTheory
     -fno-warn-name-shadowing
     -fno-warn-missing-signatures
     -fno-warn-type-defaults
+    -fno-warn-incomplete-patterns
 

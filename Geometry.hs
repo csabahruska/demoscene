@@ -2,9 +2,9 @@
 module Geometry where
 
 import Data.Bits
-import Data.ByteString.Char8 (ByteString)
+--import Data.ByteString.Char8 (ByteString)
 import Data.Vect
-import qualified Data.ByteString.Char8 as SB
+--import qualified Data.ByteString.Char8 as SB
 import qualified Data.Trie as T
 import qualified Data.Vector.Storable as V
 
@@ -211,11 +211,11 @@ addFlatNormals mesh@Mesh { mAttributes, mPrimitive = P_Triangles } =
         p1 = toVec3 (positions V.! (i*3))
         p2 = toVec3 (positions V.! (i*3 + 1))
         p3 = toVec3 (positions V.! (i*3 + 2))
-addFlatNormals mesh@Mesh { mPrimitive = P_TrianglesI indices } = addFlatNormals (unrollIndices mesh)
+addFlatNormals mesh@Mesh { mPrimitive = P_TrianglesI _indices } = addFlatNormals (unrollIndices mesh)
 addFlatNormals _ = error "addFlatNormals: unsupported primitive type"
 
 unrollIndices :: Mesh -> Mesh
-unrollIndices mesh@Mesh { mAttributes, mPrimitive = P_Triangles } = mesh
+unrollIndices mesh@Mesh { mPrimitive = P_Triangles } = mesh
 unrollIndices mesh@Mesh { mAttributes, mPrimitive = P_TrianglesI indices } =
     mesh { mAttributes = fmap (unrollAttribute indices') mAttributes, mPrimitive = P_Triangles }
   where

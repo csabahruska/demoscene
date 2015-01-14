@@ -72,7 +72,7 @@ renderScreen' frag = Accumulate fragCtx PassAll frag rast clear
 initUtility :: Renderer -> IO ()
 initUtility renderer = do
     let setMesh n m = compileMesh m >>= (\cm -> addMesh renderer n cm [])
-    setMesh "ScreenQuad" quad
+    _ <- setMesh "ScreenQuad" quad
     return ()
 
 -- | Camera transformation matrix.
