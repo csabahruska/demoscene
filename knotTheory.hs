@@ -429,7 +429,7 @@ imgToTex img = Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [img]
   sizeI = 1024 :: Word32
 
 main :: IO ()
-main = main' =<< wires
+main = main' =<< exampleWire -- wires
 
 textStyle = defaultTextStyle { textLetterSpacing = 0.0, textLineHeight = 1.25 }
 fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
@@ -706,30 +706,37 @@ main' wires = do
 
             cont <- if handleevents then do
                 case [(complete, reset) | HaltEvent complete reset <- old] of
-                    [] -> return ()
-                    bs -> do
-                        curTime1 <- getCurrentTime
-                        putStrLn "waiting for space key press"
-                        writeIORef timeRef $ Left (or $ map fst bs, startTime, if or $ map snd bs then Just curTime1 else Nothing)
+                  [] -> do
 
-                sequence_ [soundStop smp | StopSound smp <- old]
-                sequence_ [soundPlay smp 1 1 0 1 | PlaySound smp <- old]
+                    sequence_ [soundStop smp | StopSound smp <- old]
+                    sequence_ [soundPlay smp 1 1 0 1 | PlaySound smp <- old]
 
-                newEvents <- forM old $ \event -> do
-                    case event of
-                        TurnOn obj -> enableObject obj True >> return []
-                        TurnOff obj -> enableObject obj False >> return []
-                        RecurrentEvent end action ->
-                            if (compare' (Just t') end == LT)
-                            then action t' >> return [(t', RecurrentEvent end action)]
-                            else return []
-                        _ -> return []
+                    newEvents <- forM old $ \event -> do
+                        case event of
+                            TurnOn obj -> enableObject obj True >> return []
+                            TurnOff obj -> enableObject obj False >> return []
+                            RecurrentEvent end action ->
+                                if (compare' (Just t') end == LT)
+                                then action t' >> return [(t', RecurrentEvent end action)]
+                                else return []
+                            _ -> return []
 
-                let schedule' = foldr merge [] newEvents `merge` schedule_
-                    camCurve' :: Camera
-                    camCurve' = maybe camCurve (\(SetCam c) -> c) $ listToMaybe [ SetCam c | SetCam c <- reverse old]
+                    let schedule' = foldr merge [] newEvents `merge` schedule_
+                        camCurve' :: Camera
+                        camCurve' = maybe camCurve (\(SetCam c) -> c) $ listToMaybe [ SetCam c | SetCam c <- reverse old]
 
-                return $ unless (or [True | ExitEvent <- old]) $ loop camCurve' schedule'
+                    return $ unless (or [True | ExitEvent <- old]) $ loop camCurve' schedule'
+
+                  bs -> do
+                    curTime1 <- getCurrentTime
+                    putStrLn "waiting for space key press"
+                    writeIORef timeRef $ Left (or $ map fst bs, startTime, if or $ map snd bs then Just curTime1 else Nothing)
+
+                    let noHalt HaltEvent{} = False
+                        noHalt _ = True
+
+                    return $ unless (or [True | ExitEvent <- old]) $ loop camCurve $ filter (noHalt . snd) old_ `merge` schedule_
+
 
               else return $ loop camCurve schedule
 

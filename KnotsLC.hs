@@ -149,6 +149,7 @@ flattenWire (WHorizontal w) = concatMap flattenWire w
 flattenWire (WVertical w) = concatMap flattenWire w
 flattenWire w = [w]
 
+softHalt = WHalt False True
 hardHalt = WHalt True True
 
 

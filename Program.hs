@@ -20,6 +20,21 @@ import qualified LambdaCube.GL as LC
 
 ---------------------
 
+exampleWire :: IO (Wire Int ExpV1)
+exampleWire = program $ WHorizontal
+    [ {-WCamera (Just 10) $ CamMat $ fromProjective (lookat (Vec3 0 0 2) (Vec3 7 0 9) (Vec3 0 1 0))
+    , -}WCamera Nothing $ CamMat $ fromProjective (lookat (Vec3 5 1 2) (Vec3 3 1 0) (Vec3 0 1 0))
+    , WSound Nothing "music/Take_Them.ogg"
+    , WVertical
+        [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
+        , softHalt
+        , (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
+        , softHalt
+        , (wire1D 200 $ mulSV3 0.5 . unKnot) {wDuration = Just 3}
+        , softHalt
+        ]
+    ]
+
 wires :: IO (Wire Int ExpV1)
 wires = program $ WHorizontal
     [ WVertical
