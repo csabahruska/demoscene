@@ -447,7 +447,7 @@ data Event
     | ExitEvent
     | PlaySound Sample
     | StopSound Sample
-    | HaltEvent Bool
+    | HaltEvent Bool Bool
 
 main' :: Wire Int (Exp V Float) -> IO ()
 main' wires = do
@@ -620,7 +620,7 @@ main' wires = do
         addStreams t c = case c of
             WHorizontal{..} -> (maximum *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
-            WHalt{..} -> return (t, [(t, HaltEvent completeHalt)])
+            WHalt{..} -> return (t, [(t, HaltEvent completeHalt resetTime)])
             WDelay{..} -> return (t + wDuration, [])
             WSound{..} -> do
                 smp <- sampleFromFile "music/Take_Them.ogg" 1
@@ -705,12 +705,12 @@ main' wires = do
                 old = map snd old_
 
             cont <- if handleevents then do
-                case [complete | HaltEvent complete <- old] of
+                case [(complete, reset) | HaltEvent complete reset <- old] of
                     [] -> return ()
                     bs -> do
                         curTime1 <- getCurrentTime
                         putStrLn "waiting for space key press"
-                        writeIORef timeRef $ Left (or bs, startTime, curTime1)
+                        writeIORef timeRef $ Left (or $ map fst bs, startTime, if or $ map snd bs then Just curTime1 else Nothing)
 
                 sequence_ [soundStop smp | StopSound smp <- old]
                 sequence_ [soundPlay smp 1 1 0 1 | PlaySound smp <- old]
@@ -762,7 +762,10 @@ main' wires = do
           case tr of
            Left (_, start, curTime1) -> do
             k <- GLFW.getKey win Key'Space
-            when (k == KeyState'Pressed) $ do
+            when (k == KeyState'Pressed) $ case curTime1 of
+              Nothing -> do
+                writeIORef timeRef $ Right start
+              Just curTime1 -> do
                 curTime2 <- getCurrentTime
                 writeIORef timeRef $ Right $ addUTCTime (curTime2 `diffUTCTime` curTime1) start
            _ -> return ()

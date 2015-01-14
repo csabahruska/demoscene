@@ -131,6 +131,7 @@ data Wire_ dur i e
         }
     | WHalt
         { completeHalt :: Bool      -- False: time goes on and reset when spaces is pressed
+        , resetTime :: Bool
         }
     | WSound
         { wDuration  :: dur
@@ -147,6 +148,8 @@ data Camera
 flattenWire (WHorizontal w) = concatMap flattenWire w
 flattenWire (WVertical w) = concatMap flattenWire w
 flattenWire w = [w]
+
+hardHalt = WHalt True True
 
 
 wire1D i f = Wire1D () Nothing i (to1 f)
