@@ -6,17 +6,22 @@ description:
 homepage:            http://lambdacube3d.wordpress.com/
 license:             BSD3
 license-file:        LICENSE
-author:              Csaba Hruska, Peter Divianszky, Mate Kovacs
+author:              Csaba Hruska, Péter Diviánszky, Mate Kovacs
 maintainer:          csaba.hruska@gmail.com
 -- copyright:
 category:            Graphics
 build-type:          Simple
 cabal-version:       >=1.10
+stability:           experimental
 
 extra-source-files:
 
 data-files:       
 
+source-repository head
+  type:              git
+  location:          https://github.com/csabahruska/demoscene.git
+{-
 executable lambdacube-demo01
   main-is:             Demo01.hs
   -- other-modules:
@@ -38,3 +43,46 @@ executable lambdacube-demo01
                        bitmap >=0.0.2 && <0.1,
                        diagrams-rasterific >= 0.1.0.4 && <0.2
   default-language:    Haskell2010
+-}
+executable knotTheory
+  build-depends:
+    base < 5
+   ,mtl
+   ,transformers
+   ,reflection
+   ,data-reify
+   ,vect
+   ,vector
+   ,containers
+   ,bytestring
+   ,bytestring-trie
+   ,bitmap
+   ,stb-image
+   ,Noise
+   ,ad
+   ,time
+   ,GLFW-b
+   ,lambdacube-gl
+   ,FontyFruity
+   ,lafonten
+   ,proteaaudio
+  main-is:
+    knotTheory.hs
+  other-modules:
+    AD
+    Geometry
+    Utility
+    Blur
+    Scanlines
+    BuiltinVec
+    Vignette
+    Knot
+    KnotsLC
+    Program
+  ghc-options:
+    -Wall
+    -fwarn-incomplete-record-updates
+    -fno-warn-name-shadowing
+    -fno-warn-missing-signatures
+    -fno-warn-type-defaults
+
