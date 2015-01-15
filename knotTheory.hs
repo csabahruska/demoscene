@@ -429,7 +429,9 @@ imgToTex img = Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [img]
   sizeI = 1024 :: Word32
 
 main :: IO ()
-main = main' =<< wires
+main = do
+    args <- getArgs
+    main' =<< if "--examples" `elem` args then exampleWire else wires
 
 textStyle = defaultTextStyle { textLetterSpacing = 0.0, textLineHeight = 1.25 }
 fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
