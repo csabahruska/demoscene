@@ -28,7 +28,7 @@ exampleWire = program $ WHorizontal
     , WVertical
         [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
         , softHalt
-        , (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
+        , (wire1D 200 $ mulSV3 (sin (6* time) + 1.1) . unKnot) {wDuration = Just 3}
         , softHalt
         , (wire1D 200 $ mulSV3 0.5 . unKnot) {wDuration = Just 3}
         , softHalt

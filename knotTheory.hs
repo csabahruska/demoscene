@@ -596,6 +596,7 @@ main' wires = do
             calc (gen perlin { perlinFrequency = 1.1, perlinOctaves = 9, perlinSeed = 123 }) 512 512 i j)
         ch3 = createSingleChannelBitmap (512,512) Nothing (\i j -> clamp $
             calc (gen perlin { perlinFrequency = 0.6, perlinOctaves = 5, perlinSeed = 125 }) 512 512 i j)
+
         img = combineChannels [ch1,ch2,ch3] Nothing
 
     uniformFTexture2D "DistorsionTex" uniforms =<< compileTexture2DRGBAF False True img
@@ -621,6 +622,7 @@ main' wires = do
             WHorizontal{..} -> (maximum *** foldr merge []) . unzip <$> mapM (addStreams t) wWires
             WVertical{..} -> (id *** foldr merge []) <$> mapAccumLM addStreams t wWires
             WHalt{..} -> return (t, [(t, HaltEvent completeHalt resetTime)])
+            WUniform{..} -> return (t, [(t, RecurrentEvent Nothing $ \t -> setUniform wUniformName uniformMap $ wUniformValue t)])
             WDelay{..} -> return (t + wDuration, [])
             WSound{..} -> do
                 smp <- sampleFromFile "music/Take_Them.ogg" 1

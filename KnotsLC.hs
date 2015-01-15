@@ -11,9 +11,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module KnotsLC where
 
 import Data.Maybe
+import Data.Trie
 import Data.Traversable
 import Data.Foldable (foldMap)
 import Data.Functor.Product
@@ -137,9 +139,20 @@ data Wire_ dur i e
         { wDuration  :: dur
         , wSample :: FilePath
         }
+    | forall a . UniformValue a => WUniform
+        { wUniformName :: BS.ByteString
+        , wUniformValue :: Float -> a  -- TODO: allow to use time instead of Double parameter?
+        }
     -- sprite
     -- color
     -- normal
+
+class UniformValue a where
+    setUniform :: BS.ByteString -> Trie InputSetter -> SetterFun a
+instance UniformValue Bool where
+    setUniform = uniformBool
+instance UniformValue Float where
+    setUniform = uniformFloat
 
 data Camera
     = CamCurve (forall s . Floating s => CurveS s)
@@ -182,6 +195,7 @@ trav = \case
         ff True = id
         ff False = const 0
     WHalt{..} -> PC (0, False) $ \_ -> WHalt{..}
+    WUniform{..} -> PC (0, False) $ \_ -> WUniform{..}
     w@(wDuration -> Nothing) -> PC (0, True)  $ \t -> w { wDuration = t }
     w@(wDuration -> Just d)  -> PC (d, False) $ \_ -> w { wDuration = d }
 
@@ -217,6 +231,7 @@ transWire = \case
     WCamera dur ws  -> pure $ WCamera dur ws
     WSound a b      -> pure $ WSound a b
     WHalt{..}       -> pure WHalt{..}
+    WUniform{..}    -> pure WUniform{..}
 
 newid = do
     st <- get
