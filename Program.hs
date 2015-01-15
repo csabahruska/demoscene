@@ -41,6 +41,12 @@ wires = program $ WHorizontal
         [ (wire1D 200 $ mulSV3 (sin (3* time) + 1.1) . unKnot) {wDuration = Just 3}
         , wire1D 200 $ mulSV3 1.1 . unKnot
         ]
+
+    -- distortion variables
+    , WUniform "on"   $ \t -> floor t `mod` 5 == 0
+    , WUniform "down" $ \t -> sin (0.5 * t) * 0.5 + 0.5
+    , WUniform "up"   $ \t -> sin (0.5 * t) * 0.5 + 0.5 + 0.01
+
     , WSound Nothing "music/Take_Them.ogg"
     , WVertical
       [ wText2D (Just 2) defaultCam ""

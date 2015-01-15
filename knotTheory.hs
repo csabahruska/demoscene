@@ -429,7 +429,7 @@ imgToTex img = Texture (Texture2D (Float RGBA) n1) (V2 sizeI sizeI) NoMip [img]
   sizeI = 1024 :: Word32
 
 main :: IO ()
-main = main' =<< exampleWire -- wires
+main = main' =<< wires
 
 textStyle = defaultTextStyle { textLetterSpacing = 0.0, textLineHeight = 1.25 }
 fontOptions = defaultOptions { atlasSize = 1024, atlasLetterPadding = 2 }
@@ -752,12 +752,6 @@ main' wires = do
             mv $! mat4ToM44F $! cam
             proj $! mat4ToM44F $! pm
             time $ realToFrac t
-            let s = sin t' * 0.5 + 0.5
-                t' = realToFrac $ 0.5 * t
-                ti = floor t
-            uniformBool "on" uniformMap $ ti `mod` 5 == 0
-            uniformFloat "down" uniformMap $ s
-            uniformFloat "up" uniformMap $ (s+0.01)
 
             return cont
 
