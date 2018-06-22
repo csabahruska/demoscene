@@ -1,0 +1,20 @@
+resolver: lts-6.35
+
+allow-newer: true
+
+packages:
+- '.'
+- location:
+    git: https://github.com/cobbpg/lafonten.git
+    commit: 66f5efc6340827ec31fffe74a70186450257b916
+  extra-dep: true
+
+extra-deps:
+- OpenGLRaw-1.5.0.1
+- bitmap-0.0.2
+- lambdacube-core-0.2.0
+- lambdacube-edsl-0.2.0
+- lambdacube-gl-0.2.2
+- Noise-1.0.6
+- proteaaudio-0.7.0.1
+- stb-image-0.2.1
