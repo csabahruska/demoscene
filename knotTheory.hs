@@ -8,7 +8,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 import System.Environment
-import "GLFW-b" Graphics.UI.GLFW as GLFW
+import qualified Graphics.UI.GLFW as GLFW
 import Control.Monad
 import Control.Arrow
 import Control.Applicative hiding (Const)
@@ -459,18 +459,18 @@ main' wires = do
     args <- getArgs
     monitor <- case args of
       ["-w"] -> return Nothing
-      _ -> getPrimaryMonitor
+      _ -> GLFW.getPrimaryMonitor
 
     GLFW.defaultWindowHints
-    mapM_ windowHint
-      [ WindowHint'ContextVersionMajor 3
-      , WindowHint'ContextVersionMinor 3
-      , WindowHint'OpenGLProfile OpenGLProfile'Core
-      , WindowHint'OpenGLForwardCompat True
+    mapM_ GLFW.windowHint
+      [ GLFW.WindowHint'ContextVersionMajor 3
+      , GLFW.WindowHint'ContextVersionMinor 3
+      , GLFW.WindowHint'OpenGLProfile GLFW.OpenGLProfile'Core
+      , GLFW.WindowHint'OpenGLForwardCompat True
       ]
     Just win <- GLFW.createWindow 1280 720 "Knot Theory by Lambda" monitor Nothing
-    setCursorInputMode win CursorInputMode'Disabled
-    makeContextCurrent $ Just win
+    GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
+    GLFW.makeContextCurrent $ Just win
 
     let emptyFB :: Exp Obj (FrameBuffer 1 (Float,V4F))
         emptyFB = FrameBuffer (DepthImage n1 1000:.ColorImage n1 (V4 0 0 0.4 1):.ZT)
@@ -763,11 +763,11 @@ main' wires = do
           render renderer
           GLFW.swapBuffers win
 
-          pollEvents
+          GLFW.pollEvents
           case tr of
            Left (_, start, curTime1) -> do
-            k <- GLFW.getKey win Key'Space
-            when (k == KeyState'Pressed) $ case curTime1 of
+            k <- GLFW.getKey win GLFW.Key'Space
+            when (k == GLFW.KeyState'Pressed) $ case curTime1 of
               Nothing -> do
                 writeIORef timeRef $ Right start
               Just curTime1 -> do
@@ -775,8 +775,8 @@ main' wires = do
                 writeIORef timeRef $ Right $ addUTCTime (curTime2 `diffUTCTime` curTime1) start
            _ -> return ()
 
-          k <- GLFW.getKey win Key'Escape
-          unless (k == KeyState'Pressed)    cont
+          k <- GLFW.getKey win GLFW.Key'Escape
+          unless (k == GLFW.KeyState'Pressed)    cont
 
     writeIORef timeRef . Right =<< getCurrentTime
 
