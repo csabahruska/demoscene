@@ -31,3 +31,5 @@ stack setup
 stack build
 stack exec knotTheory
 ```
+
+![Knot Theory demo](knot-theory.jpg)
