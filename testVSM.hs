@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, PackageImports, TypeOperators, DataKinds #-}
 
-import "GLFW-b" Graphics.UI.GLFW as GLFW
+import qualified Graphics.UI.GLFW as GLFW
 import Control.Applicative hiding (Const)
 import Control.Monad
 import Data.Word
@@ -21,6 +21,8 @@ import LambdaCube.GL.Mesh
 --import qualified Criterion.Measurement as C
 
 import VSM
+import Utility
+import Utils
 
 import Math.Noise hiding (zero)
 import Math.Noise.Modules.Billow
@@ -122,7 +124,7 @@ main = do
         --lcnet = PrjFrameBuffer "outFB" tix0 $ post $ PrjFrameBuffer "post" tix0 (blurVH $ PrjFrameBuffer "" tix0 vsm)
         --lcnet = PrjFrameBuffer "outFB" tix0 $ post $ PrjFrameBuffer "post" tix0 $ FrameBuffer (V2 0 0) (DepthImage n1 0:.ColorImage n1 (V4 0 0 1 1 :: V4F):.ZT)
 
-    windowSize <- initCommon "LC DSL Texture Demo"
+    (win, windowSize) <- initWindow "LC DSL Texture Demo" 512 512
 
     renderer <- compileRenderer $ ScreenOut lcnet
     print $ slotUniform renderer
@@ -176,7 +178,9 @@ main = do
     let objU  = objectUniformSetter obj
         slotU = uniformSetter renderer
         draw _ = do
-            render renderer >> swapBuffers
+            render renderer
+            GLFW.swapBuffers win
+            GLFW.pollEvents
             --putStrLn $ C.secs t ++ " - render frame"
             return ()
         diffuse = uniformFTexture2D "ScreenQuad" slotU
@@ -229,11 +233,12 @@ main = do
     sc <- start $ do
         u <- scene (setScreenSize renderer) slotU objU windowSize mousePosition fblrPress
         return $ draw <$> u
-    driveNetwork sc (readInput s mousePositionSink fblrPressSink)
+    driveNetwork sc (readInput win s mousePositionSink fblrPressSink)
 
     dispose renderer
     print "renderer destroyed"
-    closeWindow
+    GLFW.destroyWindow win
+    GLFW.terminate
 
 scene :: (Word -> Word -> IO ())
       -> T.Trie InputSetter
@@ -283,93 +288,6 @@ scene setSize slotU objU windowSize mousePosition fblrPress = do
     r <- effectful3 setupGFX windowSize cam time
     return r
 
-vec4ToV4F :: Vec4 -> V4F
-vec4ToV4F (Vec4 x y z w) = V4 x y z w
-
-mat4ToM44F :: Mat4 -> M44F
-mat4ToM44F (Mat4 a b c d) = V4 (vec4ToV4F a) (vec4ToV4F b) (vec4ToV4F c) (vec4ToV4F d)
-
-readInput :: State
-          -> ((Float, Float) -> IO a)
-          -> ((Bool, Bool, Bool, Bool, Bool) -> IO c)
-          -> IO (Maybe Float)
-readInput s mousePos fblrPress = do
-    t <- getTime
-    resetTime
-
-    (x,y) <- getMousePosition
-    mousePos (fromIntegral x,fromIntegral y)
-
-    fblrPress =<< ((,,,,) <$> keyIsPressed KeyLeft <*> keyIsPressed KeyUp <*> keyIsPressed KeyDown <*> keyIsPressed KeyRight <*> keyIsPressed KeyRightShift)
-
-    updateFPS s t
-    k <- keyIsPressed KeyEsc
-    return $ if k then Nothing else Just (realToFrac t)
-
--- FRP boilerplate
-driveNetwork :: (p -> IO (IO a)) -> IO (Maybe p) -> IO ()
-driveNetwork network driver = do
-    dt <- driver
-    case dt of
-        Just dt -> do
-            join $ network dt
-            --putStrLn $ C.secs t ++ " - FRP loop"
-            --putStrLn ""
-            driveNetwork network driver
-        Nothing -> return ()
-
--- OpenGL/GLFW boilerplate
-
-initCommon :: String -> IO (Signal (Int, Int))
-initCommon title = do
-    initialize
-    openWindow defaultDisplayOptions
-        { displayOptions_numRedBits         = 8
-        , displayOptions_numGreenBits       = 8
-        , displayOptions_numBlueBits        = 8
-        , displayOptions_numAlphaBits       = 8
-        , displayOptions_numDepthBits       = 24
-        , displayOptions_width              = 800
-        , displayOptions_height             = 600
-        , displayOptions_windowIsResizable  = True
-        , displayOptions_openGLVersion      = (3,2)
-        , displayOptions_openGLProfile      = CoreProfile
---        , displayOptions_openGLForwardCompatible = True
---        , displayOptions_displayMode    = Fullscreen
-        }
-    setWindowTitle title
-
-    (windowSize,windowSizeSink) <- external (0,0)
-    setWindowSizeCallback $ \w h -> do
-        glViewport 0 0 (fromIntegral w) (fromIntegral h)
-        putStrLn $ "window size changed " ++ show (w,h)
-        windowSizeSink (fromIntegral w, fromIntegral h)
-
-    return windowSize
-
--- FPS tracking
-
-data State = State { frames :: IORef Int, t0 :: IORef Double }
-
-fpsState :: IO State
-fpsState = State <$> newIORef 0 <*> newIORef 0
-
-updateFPS :: State -> Double -> IO ()
-updateFPS state t1 = do
-    let t = 1000*t1
-        fR = frames state
-        tR = t0 state
-    modifyIORef fR (+1)
-    t0' <- readIORef tR
-    writeIORef tR $ t0' + t
-    when (t + t0' >= 5000) $ do
-    f <- readIORef fR
-    let seconds = (t + t0') / 1000
-        fps = fromIntegral f / seconds
-    putStrLn (show (round fps) ++ " FPS - " ++ show f ++ " frames in ")
-    writeIORef tR 0
-    writeIORef fR 0
-
 -- Continuous camera state (rotated with mouse, moved with arrows)
 userCamera :: Real p => Vec3 -> Signal (Float, Float) -> Signal (Bool, Bool, Bool, Bool, Bool)
            -> SignalGen p (Signal (Vec3, Vec3, Vec3, (Float, Float)))
@@ -389,36 +307,3 @@ userCamera p mposs keyss = transfer2 (p,zero,zero,(0,0)) calcCam mposs keyss
         d   = trim $ rm *. d0 :: Vec3
         u   = trim $ rm *. u0 :: Vec3
         v   = normalize $ d &^ u
-
--- | Perspective transformation matrix in row major order.
-perspective :: Float  -- ^ Near plane clipping distance (always positive).
-            -> Float  -- ^ Far plane clipping distance (always positive).
-            -> Float  -- ^ Field of view of the y axis, in radians.
-            -> Float  -- ^ Aspect ratio, i.e. screen's width\/height.
-            -> Mat4
-perspective n f fovy aspect = transpose $
-    Mat4 (Vec4 (2*n/(r-l))       0       (-(r+l)/(r-l))        0)
-         (Vec4     0        (2*n/(t-b))  ((t+b)/(t-b))         0)
-         (Vec4     0             0       (-(f+n)/(f-n))  (-2*f*n/(f-n)))
-         (Vec4     0             0            (-1)             0)
-  where
-    t = n*tan(fovy/2)
-    b = -t
-    r = aspect*t
-    l = -r
-
--- | Pure orientation matrix defined by Euler angles.
-rotationEuler :: Vec3 -> Proj4
-rotationEuler (Vec3 a b c) = orthogonal $ toOrthoUnsafe $ rotMatrixY a .*. rotMatrixX b .*. rotMatrixZ c
-
--- | Camera transformation matrix.
-lookat :: Vec3   -- ^ Camera position.
-       -> Vec3   -- ^ Target position.
-       -> Vec3   -- ^ Upward direction.
-       -> Proj4
-lookat pos target up = translateBefore4 (neg pos) (orthogonal $ toOrthoUnsafe r)
-  where
-    w = normalize $ pos &- target
-    u = normalize $ up &^ w
-    v = w &^ u
-    r = transpose $ Mat3 u v w

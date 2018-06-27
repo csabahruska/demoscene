@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds, FlexibleContexts #-}
 module Blur where
 
 import LambdaCube.GL

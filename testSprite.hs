@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, PackageImports, TypeOperators, DataKinds #-}
 
-import "GLFW-b" Graphics.UI.GLFW as GLFW
+import qualified Graphics.UI.GLFW as GLFW
 import Control.Applicative hiding (Const)
 import Control.Monad
 import Data.ByteString.Char8 (ByteString)
@@ -26,6 +26,7 @@ import Data.Maybe
 import Data.Bitmap.Pure
 
 import Utility
+import Utils
 import Scanlines
 import BuiltinVec
 
@@ -73,7 +74,7 @@ main = do
                           , scanlinesLow = Const $ V4 0.45 0.5 0.5 1
                           }
 
-    (windowSize,win) <- initCommon "LC DSL 2D Demo"
+    (win, windowSize) <- initWindow "LC DSL 2D Demo" 512 512
 
     renderer <- compileRenderer $ ScreenOut lcnet
     print $ slotUniform renderer
@@ -92,7 +93,7 @@ main = do
         slotU   = uniformSetter renderer
         diffuse = uniformFTexture2D "explosion" slotU
         background  = uniformFTexture2D "background" slotU
-        draw _  = render renderer >> swapBuffers win >> pollEvents
+        draw _  = render renderer >> GLFW.swapBuffers win >> GLFW.pollEvents
         fname   = case args of
             []  -> "textures/Explosion.png"
             n:_ -> n
@@ -106,7 +107,7 @@ main = do
     sc <- start $ do
         u <- scene (setScreenSize renderer) slotU objU windowSize mousePosition fblrPress
         return $ draw <$> u
-    driveNetwork sc (readInput s win mousePositionSink fblrPressSink)
+    driveNetwork sc (readInput win s mousePositionSink fblrPressSink)
 
     dispose renderer
     print "renderer destroyed"
@@ -137,86 +138,3 @@ scene setSize slotU objU windowSize mousePosition fblrPress = do
             return ()
     r <- effectful3 setupGFX windowSize time o
     return r
-{-
-vec4ToV4F :: Vec4 -> V4F
-vec4ToV4F (Vec4 x y z w) = V4 x y z w
-
-mat4ToM44F :: Mat4 -> M44F
-mat4ToM44F (Mat4 a b c d) = V4 (vec4ToV4F a) (vec4ToV4F b) (vec4ToV4F c) (vec4ToV4F d)
--}
-readInput :: State
-          -> Window
-          -> ((Float, Float) -> IO a)
-          -> ((Bool, Bool, Bool, Bool, Bool) -> IO c)
-          -> IO (Maybe Float)
-readInput s win mousePos fblrPress = do
-    Just t <- getTime
-    setTime 0
-
-    (x,y) <- getCursorPos win
-    mousePos (realToFrac x,realToFrac y)
-
-    [a,b,c,d,e] <- map (== KeyState'Pressed) <$> mapM (getKey win) [Key'Left, Key'Up, Key'Down, Key'Right, Key'RightShift]
-    fblrPress (a,b,c,d,e)
-
-    updateFPS s t
-    k <- getKey win Key'Escape
-    return $ if k == KeyState'Pressed then Nothing else Just (realToFrac t)
-
--- FRP boilerplate
-driveNetwork :: (p -> IO (IO a)) -> IO (Maybe p) -> IO ()
-driveNetwork network driver = do
-    dt <- driver
-    case dt of
-        Just dt -> do
-            join $ network dt
-            driveNetwork network driver
-        Nothing -> return ()
-
--- OpenGL/GLFW boilerplate
-
-initCommon :: String -> IO (Signal (Int, Int),Window)
-initCommon title = do
-    GLFW.init
-    GLFW.defaultWindowHints
-    mapM_ windowHint
-      [ WindowHint'ContextVersionMajor 3
-      , WindowHint'ContextVersionMinor 3
-      , WindowHint'OpenGLProfile OpenGLProfile'Core
-      , WindowHint'OpenGLForwardCompat True
-      ]
-    Just win <- GLFW.createWindow 512 512 title Nothing Nothing
-    makeContextCurrent $ Just win
-
-    (windowSize,windowSizeSink) <- external (0,0)
-    let changeSize _ w h = do
-          glViewport 0 0 (fromIntegral w) (fromIntegral h)
-          putStrLn $ "window size changed " ++ show (w,h)
-          windowSizeSink (fromIntegral w, fromIntegral h)
-    changeSize win 512 512
-    setWindowSizeCallback win $ Just changeSize
-
-    return (windowSize,win)
-
--- FPS tracking
-
-data State = State { frames :: IORef Int, t0 :: IORef Double }
-
-fpsState :: IO State
-fpsState = State <$> newIORef 0 <*> newIORef 0
-
-updateFPS :: State -> Double -> IO ()
-updateFPS state t1 = do
-    let t = 1000*t1
-        fR = frames state
-        tR = t0 state
-    modifyIORef fR (+1)
-    t0' <- readIORef tR
-    writeIORef tR $ t0' + t
-    when (t + t0' >= 5000) $ do
-    f <- readIORef fR
-    let seconds = (t + t0') / 1000
-        fps = fromIntegral f / seconds
-    putStrLn (show (round fps) ++ " FPS - " ++ show f ++ " frames in ")
-    writeIORef tR 0
-    writeIORef fR 0

@@ -1,5 +1,5 @@
 {-# LANGUAGE PackageImports, OverloadedStrings, DataKinds, TypeOperators #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, FlexibleContexts #-}
 
 import Control.Applicative ((<$>))
 import Control.Arrow
@@ -9,7 +9,7 @@ import Data.Time.Clock
 import qualified Data.Trie as T
 import qualified Data.Vector.Storable as SV
 import Graphics.Text.TrueType
-import "GLFW-b" Graphics.UI.GLFW as GLFW
+import qualified Graphics.UI.GLFW as GLFW
 import LambdaCube.Font.Atlas
 import LambdaCube.Font.Common
 import qualified LambdaCube.Font.SimpleDistanceField as SDF
@@ -57,14 +57,14 @@ main = do
     let args = ["unicodefonts/Ubuntu-Regular.ttf"]
     GLFW.init
     GLFW.defaultWindowHints
-    mapM_ windowHint
-      [ WindowHint'ContextVersionMajor 3
-      , WindowHint'ContextVersionMinor 3
-      , WindowHint'OpenGLProfile OpenGLProfile'Core
-      , WindowHint'OpenGLForwardCompat True
+    mapM_ GLFW.windowHint
+      [ GLFW.WindowHint'ContextVersionMajor 3
+      , GLFW.WindowHint'ContextVersionMinor 3
+      , GLFW.WindowHint'OpenGLProfile GLFW.OpenGLProfile'Core
+      , GLFW.WindowHint'OpenGLForwardCompat True
       ]
     Just win <- GLFW.createWindow 1024 768 "LambdaCube 3D Text Demo" Nothing Nothing
-    makeContextCurrent $ Just win
+    GLFW.makeContextCurrent $ Just win
 
     renderer <- compileRenderer (ScreenOut (PrjFrameBuffer "" tix0 testRender))
     setScreenSize renderer 1024 768
@@ -82,7 +82,7 @@ main = do
           textMesh_ <- buildTextMesh atlas textStyle txt
           let Just (A_V2F pos) = T.lookup "position" $ mAttributes textMesh_
               hackSize c
-                 | c `elem` ":;\"éáűőú≤≥" = 2
+                 | c `elem` (":;\"éáűőú≤≥" :: String) = 2
                  | isSpace c = 0
                  | otherwise = 1
               hack t@(_, c) = replicate (hackSize c) t
@@ -114,9 +114,9 @@ main = do
     uniformFTexture2D "fontAtlas" uniforms (getTextureData atlas)
 
     -- adding character to string
-    setCharCallback win $ Just $ \_ c -> do
-      rAlt <- (==KeyState'Pressed) <$> getKey win Key'RightAlt
-      rCtrl <- (==KeyState'Pressed) <$> getKey win Key'LeftControl
+    GLFW.setCharCallback win $ Just $ \_ c -> do
+      rAlt <- (==GLFW.KeyState'Pressed) <$> GLFW.getKey win GLFW.Key'RightAlt
+      rCtrl <- (==GLFW.KeyState'Pressed) <$> GLFW.getKey win GLFW.Key'LeftControl
       when (isPrint c && not rAlt && not rCtrl) $ do
         (((as,bs), sel_),txtObj) <- readIORef editState
         let txt' = ((c:) *** id $ delSel (as, bs), 0)
@@ -127,10 +127,10 @@ main = do
         writeIORef editState (txt',txtObj')
 
     -- handle control buttons e.g. backspace
-    setKeyCallback win $ Just $ \_ k sc ks mk -> do
-      alt <- (==KeyState'Pressed) <$> getKey win Key'RightAlt
-      when (ks == KeyState'Pressed || ks == KeyState'Repeating) $ do
-        clipboard <- getClipboardString win
+    GLFW.setKeyCallback win $ Just $ \_ k sc ks mk -> do
+      alt <- (==GLFW.KeyState'Pressed) <$> GLFW.getKey win GLFW.Key'RightAlt
+      when (ks == GLFW.KeyState'Pressed || ks == GLFW.KeyState'Repeating) $ do
+        clipboard <- GLFW.getClipboardString win
         (tx@(txt, sel_), txtObj) <- readIORef editState
         let (txt', clipboard') = f k txt
 
@@ -138,33 +138,33 @@ main = do
             sel s x
                 | not shift = noSel x
                 | otherwise = ((x, s + sel_), Nothing)
-            shift = modifierKeysShift mk
+            shift = GLFW.modifierKeysShift mk
 
             delSel (as, bs) = (when_ (sel_ < 0) (drop $ negate sel_) as, when_ (sel_ > 0) (drop sel_) bs)
             getSel (as, bs) = if sel_ == 0 then Nothing else Just (if sel_ < 0 then reverse $ take (negate sel_) as else take sel_ bs)
 
-            f Key'Enter     (as, bs)        = noSel ('\n': as, bs)
-            f Key'Backspace (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
-            f Key'Backspace (_: as, bs)     = noSel (as, bs)
-            f Key'Delete    (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
-            f Key'Delete    (as, _: bs)     = noSel (as, bs)
-            f Key'Left      (a: as, bs) | not alt    = sel   1  (as, a: bs)
-            f Key'Left      (as, bs) | not shift && not alt       = noSel (as, bs)
-            f Key'Right     (as, b: bs) | not alt     = sel (-1) (b: as, bs)
-            f Key'Right     (as, bs) | not shift && not alt       = noSel (as, bs)
-            f Key'Up        (findChar '\n' -> Just (cs, as), bs) | not alt
+            f GLFW.Key'Enter     (as, bs)        = noSel ('\n': as, bs)
+            f GLFW.Key'Backspace (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
+            f GLFW.Key'Backspace (_: as, bs)     = noSel (as, bs)
+            f GLFW.Key'Delete    (as, bs) | sel_ /= 0 = noSel $ delSel (as, bs)
+            f GLFW.Key'Delete    (as, _: bs)     = noSel (as, bs)
+            f GLFW.Key'Left      (a: as, bs) | not alt    = sel   1  (as, a: bs)
+            f GLFW.Key'Left      (as, bs) | not shift && not alt       = noSel (as, bs)
+            f GLFW.Key'Right     (as, b: bs) | not alt     = sel (-1) (b: as, bs)
+            f GLFW.Key'Right     (as, bs) | not shift && not alt       = noSel (as, bs)
+            f GLFW.Key'Up        (findChar '\n' -> Just (cs, as), bs) | not alt
                 = sel (length $ '\n': reverse cs) (as, '\n': reverse cs ++ bs)
-            f Key'Up        (as, bs) | not shift && not alt       = noSel (as, bs)
-            f Key'Down      (as, findChar '\n' -> Just (cs, bs)) | not alt
+            f GLFW.Key'Up        (as, bs) | not shift && not alt       = noSel (as, bs)
+            f GLFW.Key'Down      (as, findChar '\n' -> Just (cs, bs)) | not alt
                 = sel (negate $ length $ '\n': reverse cs) ('\n': reverse cs ++ as, bs)
-            f Key'Down      (as, bs) | not shift && not alt       = noSel (as, bs)
-            f Key'A (as, bs)  | modifierKeysControl mk = (((reverse bs ++ as, ""), negate $ length $ reverse bs ++ as), Nothing)
-            f Key'X (as, bs)  | modifierKeysControl mk
+            f GLFW.Key'Down      (as, bs) | not shift && not alt       = noSel (as, bs)
+            f GLFW.Key'A (as, bs)  | GLFW.modifierKeysControl mk = (((reverse bs ++ as, ""), negate $ length $ reverse bs ++ as), Nothing)
+            f GLFW.Key'X (as, bs)  | GLFW.modifierKeysControl mk
                 = ((delSel (as, bs), 0)
                     , getSel (as, bs))
-            f Key'C (as, bs)  | modifierKeysControl mk
+            f GLFW.Key'C (as, bs)  | GLFW.modifierKeysControl mk
                 = (((as, bs), sel_), getSel (as, bs))
-            f Key'V (as, bs)  | modifierKeysControl mk
+            f GLFW.Key'V (as, bs)  | GLFW.modifierKeysControl mk
                 = noSel ((reverse (fromMaybe "" clipboard) ++) *** id $ delSel (as, bs))
             f _             _               = (tx, Nothing)
         txtObj' <- if tx /= txt'
@@ -172,7 +172,7 @@ main = do
               removeObject renderer txtObj
               printText txt'
             else return txtObj
-        maybe (return ()) (setClipboardString win) clipboard'
+        maybe (return ()) (GLFW.setClipboardString win) clipboard'
         writeIORef editState (txt', txtObj')
 
     startTime <- getCurrentTime
@@ -180,14 +180,14 @@ main = do
         uniformM33F "textTransform" uniforms $ fromMat3 $ rotMatrix angle .*. toMat3 (V3 (V3 (scale * 0.75) 0 0) (V3 0 scale 0) (V3 ofsX ofsY 1))
         uniformFloat "outlineWidth" uniforms (min 0.5 (fromIntegral letterScale / (768 * fromIntegral letterPadding * scale * sqrt 2 * 0.75)))
         render renderer
-        swapBuffers win
-        pollEvents
-        escPressed <- (==KeyState'Pressed) <$> getKey win Key'Escape
+        GLFW.swapBuffers win
+        GLFW.pollEvents
+        escPressed <- (==GLFW.KeyState'Pressed) <$> GLFW.getKey win GLFW.Key'Escape
 
         curTime <- getCurrentTime
         let dt = realToFrac (diffUTCTime curTime prevTime) :: Float
-        rAlt <- (==KeyState'Pressed) <$> getKey win Key'RightAlt
-        [left, right, up, down, zoomIn, zoomOut, rotLeft, rotRight] <- map ((rAlt &&).(==KeyState'Pressed)) <$> mapM (getKey win) [Key'Left, Key'Right, Key'Up, Key'Down, Key'Q, Key'A, Key'W, Key'S]
+        rAlt <- (==GLFW.KeyState'Pressed) <$> GLFW.getKey win GLFW.Key'RightAlt
+        [left, right, up, down, zoomIn, zoomOut, rotLeft, rotRight] <- map ((rAlt &&).(==GLFW.KeyState'Pressed)) <$> mapM (GLFW.getKey win) [GLFW.Key'Left, GLFW.Key'Right, GLFW.Key'Up, GLFW.Key'Down, GLFW.Key'Q, GLFW.Key'A, GLFW.Key'W, GLFW.Key'S]
         let inputX = (if right then -1 else 0) + (if left then 1 else 0)
             inputY = (if up then -1 else 0) + (if down then 1 else 0)
             inputScale = (if zoomOut then -1 else 0) + (if zoomIn then 1 else 0)

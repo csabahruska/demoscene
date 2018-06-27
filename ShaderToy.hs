@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds, FlexibleContexts #-}
 module ShaderToy (fxFakeRipple, fxWarping, fxMotionBlur) where
 
 import LambdaCube.GL

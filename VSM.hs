@@ -1,35 +1,10 @@
-{-# LANGUAGE OverloadedStrings, PackageImports, TypeOperators, DataKinds #-}
+{-# LANGUAGE OverloadedStrings, PackageImports, TypeOperators, DataKinds, FlexibleContexts #-}
 module VSM where
 
 import Data.ByteString.Char8 (ByteString)
 
 import LambdaCube.GL
-
--- specialized snoc
-v3v4 :: Exp s V3F -> Exp s V4F
-v3v4 v = let V3 x y z = unpack' v in pack' $ V4 x y z (Const 1)
-
-v4v3 :: Exp s V4F -> Exp s V3F
-v4v3 v = let V4 x y z _ = unpack' v in pack' $ V3 x y z
-
--- specialized snoc
-snoc :: Exp s V3F -> Float -> Exp s V4F
-snoc v s = let V3 x y z = unpack' v in pack' $ V4 x y z (Const s)
-
-drop4 :: Exp s V4F -> Exp s V3F
-drop4 v = let V4 x y z _ = unpack' v in pack' $ V3 x y z
-
-drop3 :: Exp s V3F -> Exp s V2F
-drop3 v = let V3 x y _ = unpack' v in pack' $ V2 x y
-
-floatV :: Float -> Exp V Float
-floatV = Const
-
-floatF :: Float -> Exp F Float
-floatF = Const
-
-intF :: Int32 -> Exp F Int32
-intF = Const
+import Utility
 
 -- blur
 

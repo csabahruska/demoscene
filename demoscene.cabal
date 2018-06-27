@@ -24,26 +24,26 @@ source-repository head
 
 executable knotTheory
   build-depends:
-    base < 5
-   ,mtl
-   ,transformers
-   ,reflection
-   ,data-reify
-   ,vect
-   ,vector
-   ,containers
-   ,bytestring
-   ,bytestring-trie
-   ,bitmap
-   ,stb-image
-   ,Noise
-   ,ad
-   ,time
-   ,GLFW-b
-   ,lambdacube-gl
-   ,FontyFruity
-   ,lafonten
-   ,proteaaudio
+    base < 5,
+    mtl,
+    transformers,
+    reflection,
+    data-reify,
+    vect,
+    vector,
+    containers,
+    bytestring,
+    bytestring-trie,
+    bitmap,
+    stb-image,
+    Noise,
+    ad,
+    time,
+    GLFW-b,
+    lambdacube-gl,
+    FontyFruity,
+    lafonten,
+    proteaaudio
   main-is:
     knotTheory.hs
   other-modules:
@@ -65,3 +65,144 @@ executable knotTheory
     -fno-warn-type-defaults
     -fno-warn-incomplete-patterns
 
+executable test2D
+  build-depends:
+    base < 5,
+    stb-image,
+    bitmap,
+    Noise,
+    OpenGLRaw,
+    bytestring,
+    elerea,
+    time,
+    vect,
+    vector,
+    GLFW-b,
+    lambdacube-gl,
+    bytestring-trie
+  main-is:
+    test2D.hs
+  other-modules:
+    Utils
+
+executable testShaderToy
+  build-depends:
+    base < 5,
+    stb-image,
+    bitmap,
+    Noise,
+    OpenGLRaw,
+    bytestring,
+    elerea,
+    time,
+    vect,
+    vector,
+    GLFW-b,
+    lambdacube-gl,
+    bytestring-trie
+  main-is:
+    testShaderToy.hs
+  other-modules:
+    Utils
+
+executable testRayMarch
+  build-depends:
+    base < 5,
+    stb-image,
+    bitmap,
+    Noise,
+    OpenGLRaw,
+    bytestring,
+    elerea,
+    time,
+    vect,
+    vector,
+    GLFW-b,
+    lambdacube-gl,
+    bytestring-trie
+  main-is:
+    testRayMarch.hs
+  other-modules:
+    Utils
+
+executable testVSM
+  build-depends:
+    base < 5,
+    stb-image,
+    bitmap,
+    Noise,
+    OpenGLRaw,
+    bytestring,
+    elerea,
+    time,
+    vect,
+    vector,
+    GLFW-b,
+    lambdacube-gl,
+    bytestring-trie
+  main-is:
+    testVSM.hs
+  other-modules:
+    Utils
+
+executable testSprite
+  build-depends:
+    base < 5,
+    stb-image,
+    bitmap,
+    Noise,
+    OpenGLRaw,
+    bytestring,
+    elerea,
+    time,
+    vect,
+    vector,
+    GLFW-b,
+    lambdacube-gl,
+    bytestring-trie
+  main-is:
+    testSprite.hs
+  other-modules:
+    Utils
+
+executable testPointSprite
+  build-depends:
+    base < 5,
+    stb-image,
+    bitmap,
+    Noise,
+    OpenGLRaw,
+    bytestring,
+    elerea,
+    time,
+    vect,
+    vector,
+    GLFW-b,
+    lambdacube-gl,
+    bytestring-trie
+  main-is:
+    testPointSprite.hs
+  other-modules:
+    Utils
+
+executable terminal
+  build-depends:
+    base < 5,
+    stb-image,
+    bitmap,
+    Noise,
+    OpenGLRaw,
+    bytestring,
+    elerea,
+    time,
+    vect,
+    vector,
+    GLFW-b,
+    FontyFruity,
+    lafonten,
+    lambdacube-gl,
+    bytestring-trie
+  main-is:
+    terminal.hs
+  other-modules:
+    Utils
